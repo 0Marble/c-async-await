@@ -6,8 +6,6 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 
-void hello() { printf("Hello World!\n"); }
-
 const int STACK_SIZE = 4096;
 #define FUNCTIONS_COUNT 1024
 #define QUEUE_SIZE 100
@@ -55,6 +53,19 @@ void enqueue(Handle h) {
 }
 
 Handle peek() { return event_queue.buf[event_queue.start]; }
+
+void cleanup() {
+  for (int i = 0; i < functions.count; i++) {
+    FunctionInfo *f = &functions.elems[i];
+    if (f->stack == NULL) {
+      continue;
+    }
+
+    if (munmap(f->stack, STACK_SIZE) == -1) {
+      perror("munmap: ");
+    }
+  }
+}
 
 Handle async_call(AsyncFunction *f, void *arg) {
   Handle h = {.idx = functions.count + 1};
@@ -171,14 +182,14 @@ void *run_async_main(AsyncFunction *main_fn, void *arg) {
   main_fn(h, arg);
   assert(f0->state == READY);
 
+  cleanup();
+
   return f0->data;
 }
 
 void *await(Handle other_fn) {
-
   while (true) {
-    Handle this_fn = dequeue();
-    enqueue(this_fn);
+    Handle this_fn = peek();
 
     printf("await: %d waits for %d\n", this_fn.idx, other_fn.idx);
 
@@ -189,6 +200,8 @@ void *await(Handle other_fn) {
     switch (functions.elems[other_fn.idx - 1].state) {
     case INIT:
     case RUNNING:
+      assert(dequeue().idx == this_fn.idx);
+      enqueue(this_fn);
       async_switch(this_fn);
       printf("await: switched to %d\n", this_fn.idx);
       break;
@@ -215,5 +228,3 @@ void async_return(void *data) {
   async_switch(this_fn);
   assert(false && "Unreachable");
 }
-
-void await_sleep(int ms) { assert(false && "Unimplemented"); }
