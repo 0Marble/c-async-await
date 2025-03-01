@@ -13,4 +13,9 @@ Handle async_call(AsyncFunction *f, void *arg);
 void *await(Handle other_fn);
 void async_return(void *data);
 
+void *await_any(Handle *handles, int len, int *res_idx);
+void await_all(Handle *handles, int len, void **results);
+
+void async_skip();
+
 #endif

@@ -4,13 +4,23 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 
 const int STACK_SIZE = 4096;
 #define FUNCTIONS_COUNT 1024
 #define QUEUE_SIZE 100
 
-enum { INIT, RUNNING, READY };
+#ifdef DEBUG
+#define DBG(fmt, args...)                                                      \
+  do {                                                                         \
+    printf("[%s:%d] %s: " fmt, __FILE_NAME__, __LINE__, __func__, args);       \
+  } while (0)
+#else
+#define DBG(fmt, args...)
+#endif
+
+enum { INIT, RUNNING, SLEEPING, READY };
 
 typedef struct {
   void *stack;
@@ -90,7 +100,7 @@ void async_switch(Handle from) {
   assert(from.idx != 0);
   Handle to = peek();
   assert(to.idx != 0);
-  printf("switch: %d to %d\n", from.idx, to.idx);
+  DBG("%d to %d\n", from.idx, to.idx);
 
   FunctionInfo *f1 = &functions.elems[from.idx - 1];
   FunctionInfo *f2 = &functions.elems[to.idx - 1];
@@ -98,7 +108,7 @@ void async_switch(Handle from) {
   if (f2->state == INIT) {
     assert(f2->stack_top == NULL);
 
-    printf("switch: %d starting for the first time\n", f2->this_fn.idx);
+    DBG("%d starting for the first time\n", f2->this_fn.idx);
     void *stack =
         mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE,
              MAP_PRIVATE | MAP_STACK | MAP_GROWSDOWN | MAP_ANONYMOUS, -1, 0);
@@ -155,7 +165,7 @@ void async_switch(Handle from) {
   assert(now.idx != 0);
   FunctionInfo *f = &functions.elems[now.idx - 1];
 
-  printf("switch: switched to %d\n", f->this_fn.idx);
+  DBG("switched to %d\n", f->this_fn.idx);
 
   switch (f->state) {
   case INIT: {
@@ -190,31 +200,32 @@ void *run_async_main(AsyncFunction *main_fn, void *arg) {
 void *await(Handle other_fn) {
   while (true) {
     Handle this_fn = peek();
-
-    printf("await: %d waits for %d\n", this_fn.idx, other_fn.idx);
-
     assert(this_fn.idx != 0);
-    assert(other_fn.idx != 0);
-    assert(functions.elems[this_fn.idx - 1].state == RUNNING);
+    FunctionInfo *f0 = &functions.elems[this_fn.idx - 1];
 
-    switch (functions.elems[other_fn.idx - 1].state) {
-    case INIT:
-    case RUNNING:
-      assert(dequeue().idx == this_fn.idx);
-      enqueue(this_fn);
-      async_switch(this_fn);
-      printf("await: switched to %d\n", this_fn.idx);
-      break;
-    case READY:
-      return functions.elems[other_fn.idx - 1].data;
-      break;
+    if (f0->state == SLEEPING) {
+      f0->state = RUNNING;
+      return NULL;
     }
+
+    DBG("%d waits for %d\n", this_fn.idx, other_fn.idx);
+
+    if (other_fn.idx == 0) {
+      f0->state = SLEEPING;
+    } else if (functions.elems[other_fn.idx - 1].state == READY) {
+      return functions.elems[other_fn.idx - 1].data;
+    }
+
+    assert(dequeue().idx == this_fn.idx);
+    enqueue(this_fn);
+    async_switch(this_fn);
+    DBG("switched to %d\n", this_fn.idx);
   }
 }
 
 void async_return(void *data) {
   Handle this_fn = dequeue();
-  printf("return: %p from %d\n", data, this_fn.idx);
+  DBG("%p from %d\n", data, this_fn.idx);
 
   assert(this_fn.idx != 0);
   assert(functions.elems[this_fn.idx - 1].state == RUNNING);
@@ -227,4 +238,44 @@ void async_return(void *data) {
   }
   async_switch(this_fn);
   assert(false && "Unreachable");
+}
+
+void async_skip() {
+  Handle zero_handle = {.idx = 0};
+  (void)await(zero_handle);
+}
+
+void *await_any(Handle *handles, int len, int *result_idx) {
+  while (true) {
+    for (int i = 0; i < len; i++) {
+      Handle h = handles[i];
+      assert(h.idx != 0);
+      FunctionInfo *f = &functions.elems[h.idx - 1];
+      if (f->state == READY) {
+        if (result_idx)
+          *result_idx = i;
+        return f->data;
+      }
+    }
+    async_skip();
+  }
+}
+
+void await_all(Handle *handles, int len, void **results) {
+  while (true) {
+    int succ_cnt = 0;
+    for (int i = 0; i < len; i++) {
+      Handle h = handles[i];
+      assert(h.idx != 0);
+      FunctionInfo *f = &functions.elems[h.idx - 1];
+      if (f->state == READY) {
+        results[i] = f->data;
+        succ_cnt++;
+      }
+    }
+
+    if (succ_cnt == len)
+      break;
+    async_skip();
+  }
 }
