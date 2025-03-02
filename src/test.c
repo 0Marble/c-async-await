@@ -45,7 +45,9 @@ void async_sum(void *data) {
   long sum = 0;
   for (long i = 0; i < (long)data; i++) {
     long ab[2] = {sum, i};
-    sum = (long)await(async_call(async_add2, ab));
+    Handle h = async_call(async_add2, ab);
+    sum = (long)await(h);
+    async_free(h);
     printf("%s: %ld/%ld summed\n", __func__, i, (long)data);
   }
   async_return((void *)sum);
@@ -62,7 +64,7 @@ void async_main(void *data) {
 
   await_all(handles, 2, results);
 
-  printf("%s: async_sleep=%ld, do_stuff=%ld\n", __func__, (long)results[0],
+  printf("%s: async_sleep=%ld, async_sum=%ld\n", __func__, (long)results[0],
          (long)results[1]);
   assert((long)results[0] == 69);
   assert((long)results[1] == 4950);

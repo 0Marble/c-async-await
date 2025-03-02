@@ -20,7 +20,7 @@ const int STACK_SIZE = 4096;
 #define DBG(fmt, args...)
 #endif
 
-enum { INIT, RUNNING, SLEEPING, READY };
+enum { INIT, RUNNING, SLEEPING, READY, DEAD };
 
 typedef struct {
   void *stack;
@@ -29,11 +29,12 @@ typedef struct {
   int state;
   Handle this_fn;
   void *data;
-} FunctionInfo;
+} FunctionObject;
 
 typedef struct {
-  FunctionInfo elems[FUNCTIONS_COUNT];
+  FunctionObject elems[FUNCTIONS_COUNT];
   int count;
+  int next_free;
 } Array;
 
 Array functions = {0};
@@ -64,33 +65,58 @@ void enqueue(Handle h) {
 
 Handle peek() { return event_queue.buf[event_queue.start]; }
 
+Handle push(FunctionObject f) {
+  if (functions.next_free == 0) {
+    DBG("Creating new function object\n", 0);
+    f.this_fn = (Handle){.idx = functions.count + 1};
+    assert(functions.count < FUNCTIONS_COUNT);
+    functions.elems[functions.count] = f;
+    functions.count++;
+    return f.this_fn;
+  } else {
+    DBG("Reusing function object %d\n", functions.next_free);
+    f.this_fn = (Handle){.idx = functions.next_free};
+    FunctionObject *old = &functions.elems[functions.next_free - 1];
+    assert(old->state == DEAD);
+    int next_free = old->this_fn.idx;
+    *old = f;
+    functions.next_free = next_free;
+    return f.this_fn;
+  }
+}
+
 void cleanup() {
   for (int i = 0; i < functions.count; i++) {
-    FunctionInfo *f = &functions.elems[i];
-    if (f->stack == NULL) {
-      continue;
-    }
-
-    if (munmap(f->stack, STACK_SIZE) == -1) {
+    FunctionObject *f = &functions.elems[i];
+    if (f->stack && munmap(f->stack, STACK_SIZE) == -1) {
       perror("munmap: ");
     }
   }
 }
 
-Handle async_call(AsyncFunction *f, void *arg) {
-  Handle h = {.idx = functions.count + 1};
+void async_free(Handle h) {
+  assert(h.idx != 0);
+  assert(h.idx != 1 && "Dont free async_main");
 
-  FunctionInfo elem = {
+  FunctionObject *f = &functions.elems[h.idx - 1];
+  assert(f->state != DEAD && "Double free!");
+
+  int next_free = f->this_fn.idx;
+  f->state = DEAD;
+  f->this_fn.idx = functions.next_free;
+  f->stack_top = f->stack + STACK_SIZE;
+  functions.next_free = next_free;
+}
+
+Handle async_call(AsyncFunction *f, void *arg) {
+  FunctionObject elem = {
       .fn = f,
       .data = arg,
       .state = INIT,
-      .this_fn = h,
       .stack = NULL,
       .stack_top = NULL,
   };
-  assert(functions.count < FUNCTIONS_COUNT);
-  functions.elems[functions.count] = elem;
-  functions.count++;
+  Handle h = push(elem);
   enqueue(h);
 
   return h;
@@ -132,24 +158,25 @@ void async_switch(Handle from) {
   assert(to.idx != 0);
   DBG("%d to %d\n", from.idx, to.idx);
 
-  FunctionInfo *f1 = &functions.elems[from.idx - 1];
-  FunctionInfo *f2 = &functions.elems[to.idx - 1];
+  FunctionObject *f1 = &functions.elems[from.idx - 1];
+  FunctionObject *f2 = &functions.elems[to.idx - 1];
   long f2_first_call = f2->state == INIT;
+  assert(f2->state != DEAD);
+  assert(f2->state != READY);
 
   if (f2_first_call) {
-    assert(f2->stack_top == NULL);
-
     DBG("%d starting for the first time\n", f2->this_fn.idx);
-    void *stack =
-        mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE,
-             MAP_PRIVATE | MAP_STACK | MAP_GROWSDOWN | MAP_ANONYMOUS, -1, 0);
-    if (stack == MAP_FAILED) {
-      perror("mmap: ");
-      exit(1);
+    if (f2->stack == NULL) {
+      void *stack =
+          mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE,
+               MAP_PRIVATE | MAP_STACK | MAP_GROWSDOWN | MAP_ANONYMOUS, -1, 0);
+      if (stack == MAP_FAILED) {
+        perror("mmap: ");
+        exit(1);
+      }
+      f2->stack = stack;
+      f2->stack_top = stack + STACK_SIZE;
     }
-    f2->stack = stack;
-    long *f2_stack = stack + STACK_SIZE;
-    f2->stack_top = f2_stack;
     f2->state = RUNNING;
   }
   assert(f2->stack_top != NULL);
@@ -160,7 +187,7 @@ void async_switch(Handle from) {
 
 void *run_async_main(AsyncFunction *main_fn, void *arg) {
   Handle h = async_call(main_fn, arg);
-  FunctionInfo *f0 = &functions.elems[h.idx - 1];
+  FunctionObject *f0 = &functions.elems[h.idx - 1];
   asm volatile("\n"
                "movq %%rsp, %0\n"
                : "=r"(f0->stack_top)
@@ -179,7 +206,7 @@ void *await(Handle other_fn) {
   while (true) {
     Handle this_fn = peek();
     assert(this_fn.idx != 0);
-    FunctionInfo *f0 = &functions.elems[this_fn.idx - 1];
+    FunctionObject *f0 = &functions.elems[this_fn.idx - 1];
 
     if (f0->state == SLEEPING) {
       f0->state = RUNNING;
@@ -228,7 +255,7 @@ void *await_any(Handle *handles, int len, int *result_idx) {
     for (int i = 0; i < len; i++) {
       Handle h = handles[i];
       assert(h.idx != 0);
-      FunctionInfo *f = &functions.elems[h.idx - 1];
+      FunctionObject *f = &functions.elems[h.idx - 1];
       if (f->state == READY) {
         if (result_idx)
           *result_idx = i;
@@ -245,7 +272,7 @@ void await_all(Handle *handles, int len, void **results) {
     for (int i = 0; i < len; i++) {
       Handle h = handles[i];
       assert(h.idx != 0);
-      FunctionInfo *f = &functions.elems[h.idx - 1];
+      FunctionObject *f = &functions.elems[h.idx - 1];
       if (f->state == READY) {
         results[i] = f->data;
         succ_cnt++;
