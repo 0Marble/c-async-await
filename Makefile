@@ -1,6 +1,6 @@
 BUILD:=build
 SRC:=src
-C_FLAGS:=-fPIC -ggdb -I $(SRC) 
+C_FLAGS:=-fPIC -ggdb -I $(SRC)
 
 $(BUILD)/async.o: $(SRC)/async.c
 	mkdir -p $(BUILD)

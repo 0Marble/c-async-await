@@ -17,5 +17,6 @@ void *await_any(Handle *handles, int len, int *res_idx);
 void await_all(Handle *handles, int len, void **results);
 
 void async_skip();
+Handle current_handle();
 
 #endif
