@@ -104,8 +104,9 @@ void async_switch(Handle from) {
 
   FunctionInfo *f1 = &functions.elems[from.idx - 1];
   FunctionInfo *f2 = &functions.elems[to.idx - 1];
+  long f2_first_call = f2->state == INIT;
 
-  if (f2->state == INIT) {
+  if (f2_first_call) {
     assert(f2->stack_top == NULL);
 
     DBG("%d starting for the first time\n", f2->this_fn.idx);
@@ -118,66 +119,43 @@ void async_switch(Handle from) {
     }
     f2->stack = stack;
     long *f2_stack = stack + STACK_SIZE;
-    // 'pushing' dummy stuff onto the f2 stack for the first time
-    for (int i = 0; i < 10; i++) {
-      *f2_stack = 0xbeefcafedeadbeef;
-      f2_stack--;
-    }
-    *f2_stack = (long)f2_stack;
-
     f2->stack_top = f2_stack;
+    f2->state = RUNNING;
   }
   assert(f2->stack_top != NULL);
 
   asm volatile("\n"
-               "pushq %%rax\n"
-               "pushq %%rcx\n"
-               "pushq %%rdx\n"
                "pushq %%rbx\n"
-               "pushq %%rsi\n"
-               "pushq %%rdi\n"
                "pushq %%r12\n"
                "pushq %%r13\n"
                "pushq %%r14\n"
                "pushq %%r15\n"
                "pushq %%rbp\n"
+               "movq %1, %%r12\n"
+               "movq %2, %%r13\n"
+               "movq %3, %%r14\n"
+               "movq %4, %%r15\n"
                // Stored all registers
                "movq %%rsp, %0\n"
                // "int $3\n"
-               "movq %1, %%rsp\n"
+               "movq %%r12, %%rsp\n"
+               "test %%r13, %%r13\n"
+               "jz 1f\n"
+               "movq %%r15, %%rdi\n"
+               "call *%%r14\n"
+               "int $3\n"
                // Restoring all registers
+               "1:\n"
                "popq %%rbp\n"
                "popq %%r15\n"
                "popq %%r14\n"
                "popq %%r13\n"
                "popq %%r12\n"
-               "popq %%rdi\n"
-               "popq %%rsi\n"
                "popq %%rbx\n"
-               "popq %%rdx\n"
-               "popq %%rcx\n"
-               "popq %%rax\n"
                : "=m"(f1->stack_top)
-               : "rm"(f2->stack_top)
+               : "rm"(f2->stack_top), "rm"(f2_first_call), "rm"(f2->fn),
+                 "rm"(f2->data)
                : "memory");
-
-  Handle now = peek();
-  assert(now.idx != 0);
-  FunctionInfo *f = &functions.elems[now.idx - 1];
-
-  DBG("switched to %d\n", f->this_fn.idx);
-
-  switch (f->state) {
-  case INIT: {
-    f->state = RUNNING;
-    f->fn(f->this_fn, f->data);
-  } break;
-  case RUNNING:
-    break;
-  case READY:
-    assert(false && "Unreachable");
-    break;
-  }
 }
 
 void *run_async_main(AsyncFunction *main_fn, void *arg) {
@@ -189,7 +167,7 @@ void *run_async_main(AsyncFunction *main_fn, void *arg) {
                :
                : "memory");
   f0->state = RUNNING;
-  main_fn(h, arg);
+  main_fn(arg);
   assert(f0->state == READY);
 
   cleanup();

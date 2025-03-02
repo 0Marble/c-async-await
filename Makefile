@@ -1,10 +1,10 @@
 BUILD:=build
 SRC:=src
-C_FLAGS:=-fPIC -ggdb -I $(SRC)
+C_FLAGS:=-fPIC -ggdb -I $(SRC) 
 
 $(BUILD)/async.o: $(SRC)/async.c
 	mkdir -p $(BUILD)
-	gcc -c $(C_FLAGS) -o $@ $(SRC)/async.c 
+	gcc -c $(C_FLAGS) -DDEBUG -o $@ $(SRC)/async.c 
 
 $(BUILD)/libasync.a: $(BUILD)/async.o
 	mkdir -p $(BUILD)

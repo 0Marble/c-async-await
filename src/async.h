@@ -5,7 +5,7 @@ typedef struct {
   int idx;
 } Handle;
 
-typedef void AsyncFunction(Handle, void *);
+typedef void AsyncFunction(void *);
 
 void *run_async_main(AsyncFunction *main_fn, void *arg);
 

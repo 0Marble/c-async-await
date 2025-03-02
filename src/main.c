@@ -6,7 +6,7 @@
 #include <time.h>
 #include <unistd.h>
 
-void async_sleep(Handle h, void *data) {
+void async_sleep(void *data) {
   long start = time(NULL);
   long delay = (long)data;
 
@@ -28,20 +28,23 @@ void async_sleep(Handle h, void *data) {
   async_return((void *)69);
 }
 
-void async_ident(Handle h, void *data) { async_return(data); }
+void async_add(void *data) {
+  long *ab = data;
+  async_return((void *)(ab[0] + ab[1]));
+}
 
-void do_stuff(Handle h, void *data) {
+void do_stuff(void *data) {
   long sum = 0;
   for (long i = 0; i < (long)data; i++) {
-    long x = (long)await(async_call(async_ident, (void *)i));
+    long ab[2] = {sum, i};
+    sum = (long)await(async_call(async_add, ab));
     printf("%s: %ld/%ld summed\n", __func__, i, (long)data);
-    sum += x;
   }
   async_return((void *)sum);
 }
 
-void async_main(Handle h, void *data) {
-  printf("async_main(%d): started\n", h.idx);
+void async_main(void *data) {
+  printf("async_main: started\n");
 
   Handle handles[2] = {0};
   handles[0] = async_call(async_sleep, (void *)1);
