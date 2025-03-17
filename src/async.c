@@ -3,19 +3,21 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 
-const int STACK_SIZE = 4096;
+const int STACK_SIZE = 4 * 4096;
 #define FUNCTIONS_COUNT 1024
 #define QUEUE_SIZE 100
 
 #ifdef DEBUG
 #define DBG(fmt, args...)                                                      \
   do {                                                                         \
-    printf("[%s:%d] %s: " fmt, __FILE_NAME__, __LINE__, __func__, args);       \
+    fprintf(stderr, "[%s:%d] %s: " fmt "\n", __FILE_NAME__, __LINE__,          \
+            __func__, args);                                                   \
   } while (0)
 #else
 #define DBG(fmt, args...)
@@ -68,14 +70,14 @@ Handle peek() { return event_queue.buf[event_queue.start]; }
 
 Handle push(FunctionObject f) {
   if (functions.next_free == 0) {
-    DBG("Creating new function object\n", 0);
+    DBG("Creating new function object", 0);
     f.this_fn = (Handle){.idx = functions.count + 1};
     assert(functions.count < FUNCTIONS_COUNT);
     functions.elems[functions.count] = f;
     functions.count++;
     return f.this_fn;
   } else {
-    DBG("Reusing function object %d\n", functions.next_free);
+    DBG("Reusing function object %d", functions.next_free);
     f.this_fn = (Handle){.idx = functions.next_free};
     FunctionObject *old = &functions.elems[functions.next_free - 1];
     assert(old->state == DEAD);
@@ -157,7 +159,7 @@ void async_switch(Handle from) {
   assert(from.idx != 0);
   Handle to = peek();
   assert(to.idx != 0);
-  DBG("%d to %d\n", from.idx, to.idx);
+  DBG("%d to %d", from.idx, to.idx);
 
   FunctionObject *f1 = &functions.elems[from.idx - 1];
   FunctionObject *f2 = &functions.elems[to.idx - 1];
@@ -166,7 +168,7 @@ void async_switch(Handle from) {
   assert(f2->state != READY);
 
   if (f2_first_call) {
-    DBG("%d starting for the first time\n", f2->this_fn.idx);
+    DBG("%d starting for the first time", f2->this_fn.idx);
     if (f2->stack == NULL) {
       void *stack =
           mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE,
@@ -175,8 +177,12 @@ void async_switch(Handle from) {
         perror("mmap: ");
         exit(1);
       }
+      DBG("%d allocated new stack: %p -- %p", f2->this_fn.idx, stack,
+          stack + STACK_SIZE);
       f2->stack = stack;
       f2->stack_top = stack + STACK_SIZE;
+    } else {
+      DBG("%d reuses stack at %p", f2->stack);
     }
     f2->state = RUNNING;
   }
@@ -214,7 +220,7 @@ void *await(Handle other_fn) {
       return NULL;
     }
 
-    DBG("%d waits for %d\n", this_fn.idx, other_fn.idx);
+    DBG("%d waits for %d", this_fn.idx, other_fn.idx);
 
     if (other_fn.idx == 0) {
       f0->state = SLEEPING;
@@ -225,13 +231,13 @@ void *await(Handle other_fn) {
     assert(dequeue().idx == this_fn.idx);
     enqueue(this_fn);
     async_switch(this_fn);
-    DBG("switched to %d\n", this_fn.idx);
+    DBG("switched to %d", this_fn.idx);
   }
 }
 
 void async_return(void *data) {
   Handle this_fn = dequeue();
-  DBG("%p from %d\n", data, this_fn.idx);
+  DBG("%p from %d", data, this_fn.idx);
 
   assert(this_fn.idx != 0);
   assert(functions.elems[this_fn.idx - 1].state == RUNNING);
@@ -273,12 +279,16 @@ void await_all(Handle *handles, int len, void **results) {
     for (int i = 0; i < len; i++) {
       Handle h = handles[i];
       assert(h.idx != 0);
+
       FunctionObject *f = &functions.elems[h.idx - 1];
       if (f->state == READY) {
-        results[i] = f->data;
+        DBG("%d ready", h.idx);
+        if (results)
+          results[i] = f->data;
         succ_cnt++;
       }
     }
+    DBG("succ_cnt=%d", succ_cnt);
 
     if (succ_cnt == len)
       break;
@@ -301,11 +311,17 @@ int pack(void *buf, int size, const char *fmt, ...) {
     fmt++;
 
     switch (c) {
-    case 'd': {
-      int n = va_arg(ap, int);
+    case 'i': {
+      int32_t n = va_arg(ap, int32_t);
       assert(size >= ptr);
-      memcpy(buf + ptr, &n, sizeof(int));
-      ptr += sizeof(int);
+      memcpy(buf + ptr, &n, sizeof(int32_t));
+      ptr += sizeof(int32_t);
+    } break;
+    case 'u': {
+      uint32_t n = va_arg(ap, uint32_t);
+      assert(size >= ptr);
+      memcpy(buf + ptr, &n, sizeof(uint32_t));
+      ptr += sizeof(uint32_t);
     } break;
     case 'p': {
       long n = (long)va_arg(ap, void *);
@@ -340,10 +356,15 @@ int unpack(void *buf, const char *fmt, ...) {
     assert(len > ptr);
 
     switch (c) {
-    case 'd': {
-      int *n = va_arg(ap, int *);
-      memcpy(n, buf + ptr, sizeof(int));
-      ptr += sizeof(int);
+    case 'i': {
+      int32_t *n = va_arg(ap, int32_t *);
+      memcpy(n, buf + ptr, sizeof(int32_t));
+      ptr += sizeof(int32_t);
+    } break;
+    case 'u': {
+      uint32_t *n = va_arg(ap, uint32_t *);
+      memcpy(n, buf + ptr, sizeof(uint32_t));
+      ptr += sizeof(uint32_t);
     } break;
     case 'p': {
       void **n = va_arg(ap, void **);

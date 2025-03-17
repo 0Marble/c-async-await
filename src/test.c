@@ -32,26 +32,26 @@ void async_sleep(void *data) {
 
 void async_add2(void *data) {
   int a = 0, b = 0;
-  int size = unpack(data, "dd", &a, &b);
-  pack(data, size, "d", a + b);
+  int size = unpack(data, "ii", &a, &b);
+  pack(data, size, "i", a + b);
   async_return(data);
 }
 
 void async_sum(void *data) {
   int n = 0;
-  int size = unpack(data, "d", &n);
+  int size = unpack(data, "i", &n);
   printf("%s(%d): started\n", __func__, n);
 
   long sum = 0;
   char buf[256] = {0};
   for (int i = 0; i < n; i++) {
-    pack(buf, sizeof(buf), "dd", sum, i);
+    pack(buf, sizeof(buf), "ii", sum, i);
     Handle h = async_call(async_add2, buf);
-    unpack(await(h), "d", &sum);
+    unpack(await(h), "i", &sum);
     async_free(h);
     printf("%s: %d/%d summed\n", __func__, i, n);
   }
-  pack(data, size, "d", sum);
+  pack(data, size, "i", sum);
   async_return(data);
 }
 
@@ -60,7 +60,7 @@ void async_main(void *data) {
 
   Handle handles[2] = {0};
   char buf[256] = {0};
-  pack(buf, sizeof(buf), "d", 10);
+  pack(buf, sizeof(buf), "i", 10);
   handles[0] = async_call(async_sleep, (void *)1);
   handles[1] = async_call(async_sum, buf);
   void *results[2] = {0};
@@ -68,7 +68,7 @@ void async_main(void *data) {
   await_all(handles, 2, results);
 
   int sum = 0;
-  unpack(results[1], "d", &sum);
+  unpack(results[1], "i", &sum);
 
   printf("%s: async_sleep=%ld, async_sum=%d\n", __func__, (long)results[0],
          sum);
