@@ -1,5 +1,6 @@
 #include "async.h"
 #include <assert.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -286,3 +287,76 @@ void await_all(Handle *handles, int len, void **results) {
 }
 
 Handle current_handle() { return peek(); }
+
+int pack(void *buf, int size, const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  assert(size >= 2 * sizeof(int));
+  int ptr = 2 * sizeof(int);
+
+  while (true) {
+    char c = *fmt;
+    if (c == 0)
+      break;
+    fmt++;
+
+    switch (c) {
+    case 'd': {
+      int n = va_arg(ap, int);
+      assert(size >= ptr);
+      memcpy(buf + ptr, &n, sizeof(int));
+      ptr += sizeof(int);
+    } break;
+    case 'p': {
+      long n = (long)va_arg(ap, void *);
+      assert(size >= ptr);
+      memcpy(buf + ptr, &n, sizeof(long));
+      ptr += sizeof(void *);
+    } break;
+
+    default: {
+      DBG("Invalid type: %c", c);
+      return -1;
+    } break;
+    }
+  }
+  memcpy(buf, &ptr, sizeof(ptr));
+  memcpy(buf + sizeof(int), &size, sizeof(size));
+  return ptr;
+}
+
+int unpack(void *buf, const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  int len = *(int *)buf;
+  int size = *(int *)(buf + sizeof(int));
+  int ptr = 2 * sizeof(int);
+
+  while (true) {
+    char c = *fmt;
+    if (c == 0)
+      break;
+    fmt++;
+    assert(len > ptr);
+
+    switch (c) {
+    case 'd': {
+      int *n = va_arg(ap, int *);
+      memcpy(n, buf + ptr, sizeof(int));
+      ptr += sizeof(int);
+    } break;
+    case 'p': {
+      void **n = va_arg(ap, void **);
+      memcpy(n, buf + ptr, sizeof(void *));
+      ptr += sizeof(void *);
+    } break;
+
+    default: {
+      DBG("Invalid type: %c", c);
+      return -1;
+    } break;
+    }
+  }
+  assert(ptr == len);
+  return size;
+}

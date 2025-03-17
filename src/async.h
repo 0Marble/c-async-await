@@ -20,4 +20,7 @@ void await_all(Handle *handles, int len, void **results);
 void async_skip();
 Handle current_handle();
 
+int pack(void *buf, int size, const char *fmt, ...);
+int unpack(void *buf, const char *fmt, ...);
+
 #endif
