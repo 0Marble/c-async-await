@@ -2,6 +2,7 @@
 #include <ctype.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,8 +15,8 @@
     if ((s) && ((s)->cap == 0 && (s)->len == 0 && (s)->str == NULL) ||         \
         ((s)->cap >= (s)->len + 1 && s->str && s->str[s->len] == '\0')) {      \
     } else {                                                                   \
-      fprintf(stderr, "string invalid: `%*s', len=%d, cap=%d\n", s->len,       \
-              s->str, s->len, s->cap);                                         \
+      LOG("string invalid: `%.*s', len=%d, cap=%d\n", s->len, s->str, s->len,  \
+          s->cap);                                                             \
       exit(1);                                                                 \
     }                                                                          \
   } while (0)
@@ -55,33 +56,6 @@ void string_append(String *str, char c) {
   str->len++;
 }
 
-void string_concat(String *a, const String *b) {
-  STRING_OK(a);
-  STRING_OK(b);
-  int a_len = a->len + 1;
-  int b_len = b->len + 1;
-
-  int new_cap = a->cap;
-  while (a_len + b_len >= new_cap) {
-    new_cap = new_cap * 2 + 10;
-  }
-  if (a->cap != new_cap) {
-    a->str = realloc(a->str, new_cap);
-    a->cap = new_cap;
-  }
-  memcpy(&a->str[a->len], b->str, b->len);
-  a->len += b->len;
-  a->str[a->len] = '\0';
-  STRING_OK(a);
-}
-
-void string_concat_with_cstr(String *a, const char *cstr) {
-  int len = strlen(cstr);
-  String cstr_as_string =
-      (String){.str = (char *)cstr, .len = len, .cap = len + 1};
-  string_concat(a, &cstr_as_string);
-}
-
 void string_from_cstr(String *out, const char *cstr) {
   STRING_OK(out);
   assert(cstr);
@@ -102,6 +76,22 @@ void string_clear(String *str) {
     str->str[0] = '\0';
 }
 
+void string_clone(String *src, String *dst) {
+  STRING_OK(src);
+  STRING_OK(dst);
+  int new_cap = dst->cap;
+  while (src->len + 2 >= new_cap) {
+    new_cap = new_cap * 2 + 10;
+  }
+  if (new_cap != dst->cap) {
+    dst->str = realloc(dst->str, new_cap);
+    dst->cap = new_cap;
+  }
+  memcpy(dst->str, src->str, src->len + 1);
+  dst->len = src->len;
+  STRING_OK(dst);
+}
+
 typedef struct {
   const char *str;
   int len;
@@ -118,26 +108,32 @@ StringRef string_ref_from_cstr(const char *str) {
   return (StringRef){.str = str, .len = len};
 }
 
-StringRef string_ref_next_token(StringRef str, StringRef *cur_tok) {
-  const char *start = 0;
-  if (cur_tok != NULL) {
-    start = cur_tok->str;
-  }
-
-  int len = 0;
-  while (isspace(*start)) {
-    start++;
-  }
-  while (!isspace(start[len]) && start + len <= str.str + str.len) {
-    len++;
-  }
-
-  return (StringRef){.str = start, len = len};
-}
-
 void string_ref_clone(StringRef ref, String *out) {
   for (int i = 0; i < ref.len; i++)
     string_append(out, ref.str[i]);
+}
+
+void string_concat(String *a, StringRef b) {
+  STRING_OK(a);
+  int a_len = a->len + 1;
+  int b_len = b.len + 1;
+
+  int new_cap = a->cap;
+  while (a_len + b_len >= new_cap) {
+    new_cap = new_cap * 2 + 10;
+  }
+  if (a->cap != new_cap) {
+    a->str = realloc(a->str, new_cap);
+    a->cap = new_cap;
+  }
+  memcpy(&a->str[a->len], b.str, b.len);
+  a->len += b.len;
+  a->str[a->len] = '\0';
+  STRING_OK(a);
+}
+
+void string_concat_with_cstr(String *a, const char *cstr) {
+  string_concat(a, string_ref_from_cstr(cstr));
 }
 
 typedef struct RunList {
@@ -205,15 +201,75 @@ void command_finish(Command *cmd) {
   cmd->len++;
 }
 
+bool string_read_line(FILE *fptr, String *out) {
+  STRING_OK(out);
+  int c = 0;
+  while ((c = fgetc(fptr)) != EOF) {
+    if (c == '\n')
+      break;
+    string_append(out, c);
+  }
+  return c != EOF;
+}
+
+int string_ref_trim_left(StringRef *ref, char c) {
+  int i = 0;
+  for (; i < ref->len; i++) {
+    if (ref->str[i] != c)
+      break;
+  }
+  ref->str = &ref->str[i];
+  ref->len -= i;
+
+  return i;
+}
+
+int string_ref_trim_left_ws(StringRef *ref) {
+  int sum = 0;
+  while (true) {
+    int d = string_ref_trim_left(ref, ' ') + string_ref_trim_left(ref, '\t');
+    sum += d;
+    if (d == 0)
+      break;
+  }
+  return sum;
+}
+
+bool string_ref_split_ws_once(StringRef *original, StringRef *token) {
+  int i = 0;
+  for (; i < original->len; i++) {
+    if (!isspace(original->str[i]))
+      break;
+  }
+  int start = i;
+
+  for (; i < original->len; i++) {
+    if (isspace(original->str[i]))
+      break;
+  }
+  int end = i;
+  int len = end - start;
+
+  *token = (StringRef){
+      .str = &original->str[start],
+      .len = len,
+  };
+  StringRef old = *original;
+  original->len = (original->str + original->len) - (token->str + token->len);
+  original->str = token->str + token->len;
+  return len != 0;
+}
+
 void parse_file(const String *file_path, Command *compile_command,
                 Command *run_command, RunList *runs) {
   typedef enum {
-    Start,
-    ReadOneSpecial,
-    InSpecial,
-    NewLineAfterSpecial,
-    ReadOneSpecialAfterNewline,
-  } State;
+    Normal,
+    Compile,
+    Run,
+    Input,
+    Output,
+    Split,
+  } LastLineKind;
 
   FILE *f = fopen(file_path->str, "r");
   if (!f) {
@@ -221,97 +277,88 @@ void parse_file(const String *file_path, Command *compile_command,
     exit(1);
   }
 
-  int c = 0;
-  char special = '\0';
-  State state = Start;
+  LastLineKind last_line_kind = Normal;
+  int line_num = 0;
+  String line, input, output;
+  string_init(&line);
+  string_init(&input);
+  string_init(&output);
 
-  assert(runs);
-  RunList *input_ptr = NULL;
-  RunList *output_ptr = NULL;
-  String arg;
-  string_init(&arg);
+  RunList *this_run = NULL;
 
-  while ((c = fgetc(f)) != EOF) {
-  restart:
-    switch (state) {
-    case Start: {
-      special = '\0';
-      if (c == '$' || c == '#' || c == '%' || c == '!') {
-        state = ReadOneSpecial;
-        special = c;
-      }
-    } break;
-    case ReadOneSpecial: {
-      if (c == special) {
-        state = InSpecial;
+  while (string_read_line(f, &line)) {
+    StringRef l = string_ref(&line);
+    line_num += 1;
+    string_ref_trim_left_ws(&l);
 
-        if (special == '%') {
-          if (input_ptr == NULL) {
-            input_ptr = runs;
-          } else if (input_ptr->next) {
-            input_ptr = input_ptr->next;
-          } else {
-            RunList *next_node = run_list_init();
-            input_ptr->next = next_node;
-            input_ptr = next_node;
-          }
-        } else if (special == '#') {
-          if (output_ptr == NULL) {
-            output_ptr = runs;
-          } else if (output_ptr->next) {
-            output_ptr = input_ptr->next;
-          } else {
-            RunList *next_node = run_list_init();
-            output_ptr->next = next_node;
-            output_ptr = next_node;
-          }
+    StringRef compile_line = l, run_line = l, input_line = l, output_line = l,
+              split_line = l;
+    if (string_ref_trim_left(&compile_line, '$') == 2) {
+      string_ref_trim_left_ws(&compile_line);
+      StringRef arg = compile_line;
+      while (string_ref_split_ws_once(&compile_line, &arg)) {
+        command_append(compile_command, arg);
+      }
+
+      last_line_kind = Compile;
+    } else if (string_ref_trim_left(&run_line, '!') == 2) {
+      string_ref_trim_left_ws(&run_line);
+      StringRef arg = run_line;
+      while (string_ref_split_ws_once(&run_line, &arg)) {
+        command_append(run_command, arg);
+      }
+
+      last_line_kind = Run;
+    } else if (string_ref_trim_left(&output_line, '#') == 2) {
+      // output line
+      string_ref_trim_left_ws(&output_line);
+      if (last_line_kind == Output) {
+        string_append(&output, '\n');
+      }
+      string_concat(&output, output_line);
+
+      last_line_kind = Output;
+    } else if (string_ref_trim_left(&input_line, '%') == 2) {
+      // input line
+      string_ref_trim_left_ws(&input_line);
+      if (last_line_kind == Input) {
+        string_append(&input, '\n');
+      }
+      string_concat(&input, input_line);
+
+      last_line_kind = Input;
+    } else {
+      if (string_ref_trim_left(&split_line, '-') != 0 && split_line.len == 0) {
+        if (this_run == NULL) {
+          this_run = runs;
+        } else {
+          runs->next = this_run;
+          runs = this_run;
         }
+        string_clone(&input, &this_run->input);
+        string_clone(&output, &this_run->output);
+
+        string_clear(&input);
+        string_clear(&output);
+
+        this_run = run_list_init();
+
+        last_line_kind = Split;
       } else {
-        state = Start;
+        last_line_kind = Normal;
       }
-    } break;
-    case InSpecial: {
-      if (c == '\n') {
-        state = NewLineAfterSpecial;
-        if (special == '$') {
-          command_append(compile_command, string_ref(&arg));
-          string_clear(&arg);
-        } else if (special == '!') {
-          LOG("run arg: `%s'", arg.str);
-          command_append(run_command, string_ref(&arg));
-          string_clear(&arg);
-        }
-      } else if (special == '$' || special == '!') {
-        string_append(&arg, c);
-      } else if (special == '%') {
-        string_append(&input_ptr->input, c);
-      } else if (special == '#') {
-        string_append(&output_ptr->output, c);
-      }
-    } break;
-    case NewLineAfterSpecial: {
-      if (c == special) {
-        state = ReadOneSpecialAfterNewline;
-      } else {
-        state = Start;
-        goto restart;
-      }
-    } break;
-    case ReadOneSpecialAfterNewline: {
-      if (c == special) {
-        state = InSpecial;
-        if (special == '%') {
-          string_append(&input_ptr->input, '\n');
-        } else if (special == '#') {
-          string_append(&output_ptr->output, '\n');
-        }
-      } else {
-        state = Start;
-        goto restart;
-      }
-    } break;
     }
+
+    string_clear(&line);
   }
+
+  string_deinit(&line);
+  string_deinit(&input);
+  string_deinit(&output);
+  if (this_run && this_run != runs) {
+    run_list_deinit(this_run);
+  }
+
   command_finish(compile_command);
   command_finish(run_command);
 
@@ -430,9 +477,9 @@ int main(int argc, char *argv[]) {
   parse_file(&test_file_path, &compile_command, &run_command, run_list);
   LOG("Parsed test setup for `%s'", test_file_name);
 
-  void *compile_args[] = {&compile_command};
   String fork_output;
   string_init(&fork_output);
+  void *compile_args[] = {&compile_command};
   run_in_fork(command_execute, compile_args, (StringRef){0}, &fork_output);
   LOG("Compiled `%s': `%s'", test_file_name, fork_output.str);
   string_clear(&fork_output);
