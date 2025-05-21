@@ -16,10 +16,14 @@ $(BUILD)/test: $(SRC)/test.c $(BUILD)/libasync.a
 	mkdir -p $(BUILD)
 	gcc $(C_FLAGS) -I$(SRC) $(SRC)/test.c -o $@ -L $(BUILD) -lasync 
 
-
 $(BUILD)/runner: $(TESTS)/runner.c 
 	mkdir -p $(BUILD)
 	gcc $(C_FLAGS) $< -o $@ 
+
+test: $(BUILD)/runner
+	mkdir -p $(BUILD)/tests
+	ls $(TESTS) | grep -v runner.c | $(BUILD)/runner -
+
 
 build: $(BUILD)/test $(BUILD)/libasync.a $(BUILD)/runner
 

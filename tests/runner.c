@@ -451,12 +451,9 @@ int command_execute(void **arg) {
 
 int dummy(void **args) { return (int)(long)(args); }
 
-int main(int argc, char *argv[]) {
-  assert(argc == 2);
-  const char *test_file_name = argv[1];
+void run_test(const char *test_file_name) {
   const char *tests_dir = "tests";
   const char *build_dir = "build/tests";
-  const char *test_ext = ".c";
 
   LOG("Preparing test `%s'...", test_file_name);
 
@@ -465,7 +462,6 @@ int main(int argc, char *argv[]) {
   string_concat_with_cstr(&test_file_path, tests_dir);
   string_append(&test_file_path, '/');
   string_concat_with_cstr(&test_file_path, test_file_name);
-  string_concat_with_cstr(&test_file_path, test_ext);
 
   LOG("Test source file: `%s'", test_file_path.str);
 
@@ -506,6 +502,25 @@ int main(int argc, char *argv[]) {
   command_deinit(&run_command);
   string_deinit(&test_file_path);
   string_deinit(&fork_output);
+}
+
+int main(int argc, char *argv[]) {
+  assert(argc == 2);
+
+  if (strcmp(argv[1], "-") == 0) {
+    String test_file_name;
+    string_init(&test_file_name);
+
+    while (string_read_line(stdin, &test_file_name)) {
+      run_test(test_file_name.str);
+      string_clear(&test_file_name);
+    }
+
+    string_deinit(&test_file_name);
+  } else {
+    run_test(argv[1]);
+  }
+  LOG("%s", "All Ok!");
 
   return 0;
 }

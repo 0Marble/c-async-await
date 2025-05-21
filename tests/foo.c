@@ -3,17 +3,20 @@
 $$ gcc ./tests/foo.c -o ./build/tests/foo
 
 %% 10
-## 10
-##
------------
-
 %% 20
-## 20
+## 30
 ##
 -----------
 
-%% -69
-## -69
+%% -1
+%% 2
+## 1
+##
+-----------
+
+%% 100
+%% -31
+## 69
 ##
 -----------
  */
@@ -21,8 +24,9 @@ $$ gcc ./tests/foo.c -o ./build/tests/foo
 #include <stdio.h>
 
 int main(int argc, char *argv[]) {
-  int number = 0;
-  scanf("%d", &number);
-  printf("%d\n", number);
+  int a = 0, b = 0;
+  scanf("%d", &a);
+  scanf("%d", &b);
+  printf("%d\n", a + b);
   return 0;
 }
