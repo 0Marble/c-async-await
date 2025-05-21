@@ -366,8 +366,8 @@ void parse_file(const String *file_path, Command *compile_command,
 }
 
 typedef int ForkFn(void **args);
-void run_in_fork(ForkFn *fork_fn, void **args, StringRef fork_input,
-                 String *fork_output) {
+int run_in_fork(ForkFn *fork_fn, void **args, StringRef fork_input,
+                String *fork_output) {
 
   int stdin_pipe[2] = {0};
   int stdout_pipe[2] = {0};
@@ -421,8 +421,11 @@ void run_in_fork(ForkFn *fork_fn, void **args, StringRef fork_input,
 
     int status = 0;
     waitpid(pid, &status, 0);
-    assert(WIFEXITED(status));
-    assert(WEXITSTATUS(status) == 0);
+    if (!WIFEXITED(status))
+      return -1;
+    if (WEXITSTATUS(status) != 0)
+      return -1;
+    return 0;
   }
 }
 
@@ -449,9 +452,7 @@ int command_execute(void **arg) {
   return 0;
 }
 
-int dummy(void **args) { return (int)(long)(args); }
-
-void run_test(const char *test_file_name) {
+int run_test(const char *test_file_name) {
   const char *tests_dir = "tests";
   const char *build_dir = "build/tests";
 
@@ -476,22 +477,30 @@ void run_test(const char *test_file_name) {
   String fork_output;
   string_init(&fork_output);
   void *compile_args[] = {&compile_command};
-  run_in_fork(command_execute, compile_args, (StringRef){0}, &fork_output);
+  if (run_in_fork(command_execute, compile_args, (StringRef){0},
+                  &fork_output) != 0) {
+    LOG("Compile for `%s' failed", test_file_name);
+    return -1;
+  }
   LOG("Compiled `%s': `%s'", test_file_name, fork_output.str);
   string_clear(&fork_output);
 
   LOG("Running `%s'", test_file_name);
   RunList *current_run = run_list;
+  int success = 0;
   for (int i = 0; current_run != NULL; i++, current_run = current_run->next) {
     LOG("Run %d for `%s'", i, test_file_name);
     void *run_args[] = {&run_command};
     string_clear(&fork_output);
-    run_in_fork(command_execute, run_args, string_ref(&current_run->input),
-                &fork_output);
-    if (fork_output.len != current_run->output.len ||
-        strcmp(fork_output.str, current_run->output.str) != 0) {
+    if (run_in_fork(command_execute, run_args, string_ref(&current_run->input),
+                    &fork_output) != 0) {
+      LOG("Run %d for `%s' crashed", i, test_file_name);
+      success = -1;
+    } else if (fork_output.len != current_run->output.len ||
+               strcmp(fork_output.str, current_run->output.str) != 0) {
       LOG("Run %d for `%s': fail, expected `%s', got `%s'", i, test_file_name,
           current_run->output.str, fork_output.str);
+      success = -1;
     } else {
       LOG("Run %d for `%s': ok", i, test_file_name);
     }
@@ -502,17 +511,28 @@ void run_test(const char *test_file_name) {
   command_deinit(&run_command);
   string_deinit(&test_file_path);
   string_deinit(&fork_output);
+
+  return success;
 }
 
 int main(int argc, char *argv[]) {
   assert(argc == 2);
+
+  bool success = true;
+  String failed_tests;
+  string_init(&failed_tests);
 
   if (strcmp(argv[1], "-") == 0) {
     String test_file_name;
     string_init(&test_file_name);
 
     while (string_read_line(stdin, &test_file_name)) {
-      run_test(test_file_name.str);
+      if (run_test(test_file_name.str) != 0) {
+        success = false;
+        string_append(&failed_tests, '`');
+        string_concat(&failed_tests, string_ref(&test_file_name));
+        string_concat_with_cstr(&failed_tests, "', ");
+      }
       string_clear(&test_file_name);
     }
 
@@ -520,7 +540,12 @@ int main(int argc, char *argv[]) {
   } else {
     run_test(argv[1]);
   }
-  LOG("%s", "All Ok!");
+  if (success) {
+    LOG("%s", "All Ok!");
+  } else {
+    LOG("Had fails in tests: %s", failed_tests.str);
+  }
+  string_deinit(&failed_tests);
 
   return 0;
 }
