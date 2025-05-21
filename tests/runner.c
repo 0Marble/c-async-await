@@ -538,7 +538,8 @@ int main(int argc, char *argv[]) {
 
     string_deinit(&test_file_name);
   } else {
-    run_test(argv[1]);
+    if (run_test(argv[1]) != 0)
+      success = false;
   }
   if (success) {
     LOG("%s", "All Ok!");
