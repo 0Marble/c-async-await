@@ -21,11 +21,14 @@
 #define QUEUE_SIZE 10
 #endif
 
+#ifndef BUF_SIZE
+#define BUF_SIZE 1024
+#endif
+
 typedef struct {
-  char buffer[1024];
+  char buffer[BUF_SIZE];
   int start;
   int end;
-  int size;
 } Buffer;
 
 const int NEXT_BYTE_CLIENT_LEFT = 256;
@@ -34,7 +37,7 @@ const int NEXT_BYTE_ERROR = 257;
 int next_byte(int client_socket, Buffer *buf) {
   if (buf->start == buf->end) {
     LOG("%s", "refilling buffer");
-    int recv_amt = recv(client_socket, buf->buffer, buf->size, 0);
+    int recv_amt = recv(client_socket, buf->buffer, BUF_SIZE, 0);
     if (recv_amt == -1) {
       perror("recv");
       return NEXT_BYTE_ERROR;
@@ -59,7 +62,6 @@ int next_byte(int client_socket, Buffer *buf) {
 
 void echo_loop(int client_socket) {
   Buffer buf = {0};
-  buf.size = 1024;
 
   String msg;
   string_init(&msg);

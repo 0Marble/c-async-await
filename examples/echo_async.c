@@ -1,8 +1,9 @@
 #include "../src/async.h"
+#include "../src/io.h"
+
 #include "str.h"
 #include <arpa/inet.h>
 #include <assert.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -24,77 +25,24 @@
 #define QUEUE_SIZE 100
 #endif
 
+#ifndef BUF_SIZE
+#define BUF_SIZE 1024
+#endif
+
 typedef struct {
-  char buffer[1024];
+  char buffer[BUF_SIZE];
   int start;
   int end;
-  int size;
 } Buffer;
 
 const int NEXT_BYTE_CLIENT_LEFT = 256;
 const int NEXT_BYTE_ERROR = 257;
 
-void async_recv(void *args) {
-  int sock = 0;
-  char *buf = NULL;
-  int buf_size = 0;
-  int flags = 0;
-  int size = unpack(args, "ipii", &sock, &buf, &buf_size, &flags);
-
-  int res = 0;
-  while (true) {
-    res = recv(sock, buf, buf_size, flags);
-    if (res == -1 && (errno == EWOULDBLOCK || errno == EAGAIN)) {
-      async_skip();
-    } else {
-      break;
-    }
-  }
-  async_return(&res);
-}
-
-void async_send(void *args) {
-  int sock = 0;
-  char *buf = NULL;
-  int buf_size = 0;
-  int flags = 0;
-  int size = unpack(args, "ipii", &sock, &buf, &buf_size, &flags);
-
-  int res = 0;
-  while (true) {
-    res = send(sock, buf, buf_size, flags);
-    if (res == -1 && (errno == EWOULDBLOCK || errno == EAGAIN)) {
-      async_skip();
-    } else {
-      break;
-    }
-  }
-  async_return(&res);
-}
-
-int await_async_recv(int sock, char *buf, int n, int flags) {
-  char args[256] = {0};
-  pack(args, sizeof(args), "ipii", sock, buf, n, flags);
-  Handle h = async_call(async_recv, args);
-  int recv_amt = *(int *)await(h);
-  async_free(h);
-  return recv_amt;
-}
-
-int await_async_send(int sock, char *buf, int n, int flags) {
-  char args[256] = {0};
-  pack(args, sizeof(args), "ipii", sock, buf, n, flags);
-  Handle h = async_call(async_send, args);
-  int recv_amt = *(int *)await(h);
-  async_free(h);
-  return recv_amt;
-}
-
 int next_byte(int client_socket, Buffer *buf) {
   if (buf->start == buf->end) {
     LOG("%s", "refilling buffer");
 
-    int recv_amt = await_async_recv(client_socket, buf->buffer, buf->size, 0);
+    int recv_amt = await_async_recv(client_socket, buf->buffer, BUF_SIZE, 0);
     if (recv_amt == -1) {
       perror("recv");
       return NEXT_BYTE_ERROR;
@@ -120,7 +68,6 @@ int next_byte(int client_socket, Buffer *buf) {
 void echo_loop(void *args) {
   int client_socket = (int)(long)args;
   Buffer buf = {0};
-  buf.size = 1024;
 
   String msg;
   string_init(&msg);
@@ -169,17 +116,8 @@ void accept_loop(void *args) {
     socklen_t client_addr_len = sizeof(client_addr);
 
     LOG("%s", "Waiting for clients...");
-    int client_socket = 0;
-    while (true) {
-      client_socket = accept(accept_socket, (struct sockaddr *)&client_addr,
-                             &client_addr_len);
-      if (client_socket == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-        async_skip();
-      } else {
-        LOG("%s", "new user");
-        break;
-      }
-    }
+    int client_socket = await_async_accept(
+        accept_socket, (struct sockaddr *)&client_addr, &client_addr_len);
     if (client_socket == -1) {
       perror("Couldnt accept");
       continue;

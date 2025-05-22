@@ -4,11 +4,15 @@ TESTS:=tests
 EXMPL:=examples
 C_FLAGS:=-fPIC -ggdb 
 
-$(BUILD)/async.o: $(SRC)/async.c
+$(BUILD)/async.o: $(SRC)/async.c 
 	mkdir -p $(BUILD)
-	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $(SRC)/async.c 
+	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
 
-$(BUILD)/libasync.a: $(BUILD)/async.o
+$(BUILD)/io.o: $(SRC)/io.c 
+	mkdir -p $(BUILD)
+	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
+
+$(BUILD)/libasync.a: $(BUILD)/async.o $(BUILD)/io.o
 	mkdir -p $(BUILD)
 	ar r $@ $^
 
