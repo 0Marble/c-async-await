@@ -36,7 +36,7 @@ test: $(BUILD)/runner
 	mkdir -p $(BUILD)/tests
 	ls $(TESTS) | grep -v runner.c | $(BUILD)/runner -
 
-$(BUILD)/$(EXMPL)/echo_fork: $(EXMPL)/echo_fork.c $(BUILD)/libstr.a
+$(BUILD)/$(EXMPL)/echo_epoll: $(EXMPL)/echo_epoll.c $(BUILD)/libstr.a
 	mkdir -p $(BUILD)/$(EXMPL)
 	gcc $(C_FLAGS) -I$(SRC) -I$(EXMPL) $< -o $@ -L $(BUILD) -lstr
 
@@ -44,7 +44,7 @@ $(BUILD)/$(EXMPL)/echo_async: $(EXMPL)/echo_async.c $(BUILD)/libstr.a $(BUILD)/l
 	mkdir -p $(BUILD)/$(EXMPL)
 	gcc $(C_FLAGS) -I$(SRC) -I$(EXMPL) $< -o $@ -L $(BUILD) -lstr -lasync
 
-build: $(BUILD)/test $(BUILD)/libasync.a $(BUILD)/runner $(BUILD)/str.a $(BUILD)/$(EXMPL)/echo_fork $(BUILD)/$(EXMPL)/echo_async
+build: $(BUILD)/test $(BUILD)/libasync.a $(BUILD)/runner $(BUILD)/str.a $(BUILD)/$(EXMPL)/echo_epoll $(BUILD)/$(EXMPL)/echo_async
 
 .PHONY: clean
 clean:

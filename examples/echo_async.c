@@ -89,13 +89,23 @@ void echo_loop(void *args) {
     }
     LOG("got message: `%s'", msg.str);
 
-    if (await_async_send(client_socket, size, 4, 0) == -1) {
-      perror("send");
-      goto fail;
+    int sent_amt = 0;
+    while (sent_amt < 4) {
+      int status = await_async_send(client_socket, size, 4, 0);
+      if (status == -1) {
+        perror("send");
+        goto fail;
+      }
+      sent_amt += status;
     }
-    if (await_async_send(client_socket, msg.str, msg.len, 0) == -1) {
-      perror("send");
-      goto fail;
+    sent_amt = 0;
+    while (sent_amt < msg_len) {
+      int status = await_async_send(client_socket, msg.str, msg.len, 0);
+      if (status == -1) {
+        perror("send");
+        goto fail;
+      }
+      sent_amt += status;
     }
     string_clear(&msg);
   }
