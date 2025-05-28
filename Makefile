@@ -8,6 +8,11 @@ $(BUILD)/async.o: $(SRC)/async.c
 	mkdir -p $(BUILD)
 	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
 
+
+$(BUILD)/storage.o: $(SRC)/storage.c 
+	mkdir -p $(BUILD)
+	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
+
 $(BUILD)/queue_scheduler.o: $(SRC)/queue_scheduler.c 
 	mkdir -p $(BUILD)
 	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
@@ -16,7 +21,7 @@ $(BUILD)/io.o: $(SRC)/io.c
 	mkdir -p $(BUILD)
 	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
 
-$(BUILD)/libasync.a: $(BUILD)/async.o $(BUILD)/io.o $(BUILD)/queue_scheduler.o
+$(BUILD)/libasync.a: $(BUILD)/async.o $(BUILD)/io.o $(BUILD)/queue_scheduler.o $(BUILD)/storage.o
 	mkdir -p $(BUILD)
 	ar r $@ $^
 
@@ -36,7 +41,7 @@ $(BUILD)/runner: $(TESTS)/runner.c
 	mkdir -p $(BUILD)
 	gcc $(C_FLAGS) $< -o $@ 
 
-test: $(BUILD)/runner
+test: $(BUILD)/runner $(BUILD)/libasync.a
 	mkdir -p $(BUILD)/tests
 	ls $(TESTS) | grep -v runner.c | $(BUILD)/runner -
 
