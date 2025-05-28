@@ -2,9 +2,13 @@ BUILD:=build
 SRC:=src
 TESTS:=tests
 EXMPL:=examples
-C_FLAGS:=-fPIC -ggdb -O3
+C_FLAGS:=-fPIC -ggdb 
 
 $(BUILD)/async.o: $(SRC)/async.c 
+	mkdir -p $(BUILD)
+	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
+
+$(BUILD)/queue_scheduler.o: $(SRC)/queue_scheduler.c 
 	mkdir -p $(BUILD)
 	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
 
@@ -12,7 +16,7 @@ $(BUILD)/io.o: $(SRC)/io.c
 	mkdir -p $(BUILD)
 	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
 
-$(BUILD)/libasync.a: $(BUILD)/async.o $(BUILD)/io.o
+$(BUILD)/libasync.a: $(BUILD)/async.o $(BUILD)/io.o $(BUILD)/queue_scheduler.o
 	mkdir -p $(BUILD)
 	ar r $@ $^
 

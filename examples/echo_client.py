@@ -5,7 +5,7 @@ import sys
 
 MSG_LEN_MAX = 1000
 ROUND_CNT_MAX = 1000
-CLIENT_CNT = 5000
+CLIENT_CNT = 100
 SYMBOLS = [chr(c) for c in range(48, 58)] + [chr(c) for c in range(64, 91)] + [chr(c) for c in range(97, 123)]
 
 def random_msg():

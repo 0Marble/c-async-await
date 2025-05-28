@@ -1,11 +1,35 @@
 #ifndef __ASYNC_H__
 #define __ASYNC_H__
 
+#ifdef DEBUG
+#define DBG(fmt, args...)                                                      \
+  do {                                                                         \
+    fprintf(stderr, "[%s:%d] %s: " fmt "\n", __FILE_NAME__, __LINE__,          \
+            __func__, args);                                                   \
+  } while (0)
+#else
+#define DBG(fmt, args...)
+#endif
+
 typedef struct {
   int idx;
 } Handle;
 
 typedef void AsyncFunction(void *);
+
+enum { INIT, RUNNING, SLEEPING, READY, DEAD };
+#ifndef STACK_SIZE
+#define STACK_SIZE 4 * 4096
+#endif
+
+typedef struct {
+  void *stack;
+  void *stack_top;
+  AsyncFunction *fn;
+  int state;
+  Handle this_fn;
+  void *data;
+} FunctionObject;
 
 void *run_async_main(AsyncFunction *main_fn, void *arg);
 
