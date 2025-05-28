@@ -1,6 +1,8 @@
 #ifndef __ASYNC_H__
 #define __ASYNC_H__
 
+#include <stdbool.h>
+
 #ifdef DEBUG
 #define DBG(fmt, args...)                                                      \
   do {                                                                         \
@@ -18,6 +20,7 @@ typedef struct {
 typedef void AsyncFunction(void *);
 
 enum { INIT, RUNNING, SLEEPING, READY, DEAD };
+
 #ifndef STACK_SIZE
 #define STACK_SIZE 4 * 4096
 #endif
@@ -27,6 +30,7 @@ typedef struct {
   void *stack_top;
   AsyncFunction *fn;
   int state;
+  bool orphaned;
   Handle this_fn;
   void *data;
 } FunctionObject;
@@ -37,6 +41,7 @@ Handle async_call(AsyncFunction *f, void *arg);
 void *await(Handle other_fn);
 void async_return(void *data);
 void async_free(Handle h);
+void async_orphan(Handle h);
 
 void *await_any(Handle *handles, int len, int *res_idx);
 void await_all(Handle *handles, int len, void **results);

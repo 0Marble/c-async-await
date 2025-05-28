@@ -16,14 +16,20 @@ void async_free(Handle h) {
   scheduler.vtable->free_coroutine(scheduler.data, h);
 }
 
+void async_orphan(Handle h) {
+  FunctionObject *f = scheduler.vtable->get_coroutine(scheduler.data, h);
+  f->orphaned = true;
+}
+
 Handle async_call(AsyncFunction *f, void *arg) {
-  FunctionObject elem = {
-      .fn = f,
-      .data = arg,
-      .state = INIT,
-      .stack = NULL,
-      .stack_top = NULL,
-  };
+  FunctionObject elem = {0};
+  elem.fn = f;
+  elem.data = arg;
+  elem.state = INIT;
+  elem.stack = NULL;
+  elem.stack_top = NULL;
+  elem.orphaned = false;
+
   Handle h = scheduler.vtable->add_coroutine(scheduler.data, elem);
 
   return h;
@@ -42,7 +48,10 @@ void async_switch_asm(void **f1_stack_ptr, // rdi
                "pushq %r14\n"
                "pushq %r15\n"
                "pushq %rbp\n"
+               "cmpq $0x0, %rdi\n"
+               "je 2f\n"
                "movq %rsp, (%rdi)\n"
+               "2:\n"
                "movq %rsi, %rsp\n"
                "cmpq $0x0, %rdx\n"
                "je 1f\n"
@@ -60,12 +69,14 @@ void async_switch_asm(void **f1_stack_ptr, // rdi
 }
 
 void async_switch(Handle from) {
-  assert(from.idx != 0);
   Handle to = scheduler.vtable->current(scheduler.data);
   assert(to.idx != 0);
   DBG("%d to %d", from.idx, to.idx);
 
-  FunctionObject *f1 = scheduler.vtable->get_coroutine(scheduler.data, from);
+  FunctionObject *f1 = NULL;
+  if (from.idx != 0) {
+    f1 = scheduler.vtable->get_coroutine(scheduler.data, from);
+  }
   FunctionObject *f2 = scheduler.vtable->get_coroutine(scheduler.data, to);
   long f2_first_call = f2->state == INIT;
   assert(f2->state != DEAD);
@@ -91,8 +102,12 @@ void async_switch(Handle from) {
     f2->state = RUNNING;
   }
   assert(f2->stack_top != NULL);
-  async_switch_asm(&f1->stack_top, f2->stack_top, f2_first_call, f2->fn,
-                   f2->data);
+  if (f1) {
+    async_switch_asm(&f1->stack_top, f2->stack_top, f2_first_call, f2->fn,
+                     f2->data);
+  } else {
+    async_switch_asm(NULL, f2->stack_top, f2_first_call, f2->fn, f2->data);
+  }
   return;
 }
 
@@ -158,7 +173,12 @@ void async_return(void *data) {
     return;
   }
   scheduler.vtable->next_coroutine(scheduler.data);
-  async_switch(this_fn);
+  if (f->orphaned) {
+    async_free(this_fn);
+    async_switch((Handle){.idx = 0});
+  } else {
+    async_switch(this_fn);
+  }
   assert(false && "Unreachable");
 }
 

@@ -137,6 +137,7 @@ void accept_loop(void *args) {
     }
     LOG("%s", "New connection");
     Handle h = async_call(echo_loop, (void *)(long)client_socket);
+    async_orphan(h);
   }
 }
 
