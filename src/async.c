@@ -10,8 +10,8 @@
 #include <sys/mman.h>
 
 const int STACK_SIZE = 4 * 4096;
-#define FUNCTIONS_COUNT 1024
-#define QUEUE_SIZE 100
+#define FUNCTIONS_COUNT 65536
+#define QUEUE_SIZE 65536
 
 #ifdef DEBUG
 #define DBG(fmt, args...)                                                      \

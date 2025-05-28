@@ -142,3 +142,25 @@ StringRef string_substr(String *s, int start, int len) {
   assert(start < s->len && start + len < s->len);
   return (StringRef){.str = &s->str[start], .len = len};
 }
+
+void string_reserve(String *s, int cap) {
+  if (s->cap >= cap + 1)
+    return;
+  s->str = realloc(s->str, cap + 1);
+}
+
+void string_resize(String *s, int new_size, char pad_char) {
+  if (s->len == new_size)
+    return;
+  else if (s->len > new_size) {
+    s->len = new_size;
+    if (s->cap != 0) {
+      s->str[s->len] = '\0';
+    }
+    return;
+  } else {
+    for (; s->len < new_size;) {
+      string_append(s, pad_char);
+    }
+  }
+}

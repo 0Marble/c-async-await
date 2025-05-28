@@ -2,7 +2,7 @@ BUILD:=build
 SRC:=src
 TESTS:=tests
 EXMPL:=examples
-C_FLAGS:=-fPIC -ggdb 
+C_FLAGS:=-fPIC -ggdb -O3
 
 $(BUILD)/async.o: $(SRC)/async.c 
 	mkdir -p $(BUILD)
@@ -38,13 +38,13 @@ test: $(BUILD)/runner
 
 $(BUILD)/$(EXMPL)/echo_epoll: $(EXMPL)/echo_epoll.c $(BUILD)/libstr.a
 	mkdir -p $(BUILD)/$(EXMPL)
-	gcc $(C_FLAGS) -I$(SRC) -I$(EXMPL) $< -o $@ -L $(BUILD) -lstr
+	gcc $(C_FLAGS) -I$(SRC) -I$(EXMPL) -DNOLOG $< -o $@ -L $(BUILD) -lstr
 
 $(BUILD)/$(EXMPL)/echo_async: $(EXMPL)/echo_async.c $(BUILD)/libstr.a $(BUILD)/libasync.a
 	mkdir -p $(BUILD)/$(EXMPL)
-	gcc $(C_FLAGS) -I$(SRC) -I$(EXMPL) $< -o $@ -L $(BUILD) -lstr -lasync
+	gcc $(C_FLAGS) -I$(SRC) -I$(EXMPL) -DNOLOG $< -o $@ -L $(BUILD) -lstr -lasync
 
-build: $(BUILD)/test $(BUILD)/libasync.a $(BUILD)/runner $(BUILD)/str.a $(BUILD)/$(EXMPL)/echo_epoll $(BUILD)/$(EXMPL)/echo_async
+build: $(BUILD)/test $(BUILD)/libasync.a $(BUILD)/runner $(BUILD)/libstr.a $(BUILD)/$(EXMPL)/echo_epoll $(BUILD)/$(EXMPL)/echo_async
 
 .PHONY: clean
 clean:

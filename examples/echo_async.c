@@ -16,9 +16,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#ifndef LOG
+#ifndef NOLOG
 #define LOG(fmt, ...)                                                          \
   fprintf(stderr, "[%s:%d] " fmt "\n", __FILE_NAME__, __LINE__, __VA_ARGS__)
+#else
+#define LOG(fmt, ...)
 #endif
 
 #ifndef QUEUE_SIZE
@@ -26,7 +28,7 @@
 #endif
 
 #ifndef BUF_SIZE
-#define BUF_SIZE 1024
+#define BUF_SIZE 256
 #endif
 
 typedef struct {
@@ -35,35 +37,46 @@ typedef struct {
   int end;
 } Buffer;
 
-const int NEXT_BYTE_CLIENT_LEFT = 256;
-const int NEXT_BYTE_ERROR = 257;
-
-int next_byte(int client_socket, Buffer *buf) {
-  if (buf->start == buf->end) {
-    LOG("%s", "refilling buffer");
-
-    int recv_amt = await_async_recv(client_socket, buf->buffer, BUF_SIZE, 0);
-    if (recv_amt == -1) {
-      perror("recv");
-      return NEXT_BYTE_ERROR;
-    } else if (recv_amt == 0) {
-      return NEXT_BYTE_CLIENT_LEFT;
+int read_n_bytes(int sock, int n, char *out, Buffer *buf) {
+  int amt = 0;
+  while (amt < n) {
+    if (buf->start == buf->end) {
+      int status = await_async_recv(sock, buf->buffer, sizeof(buf->buffer), 0);
+      if (status == -1) {
+        perror("recv");
+        return -1;
+      } else if (status == 0) {
+        return 0;
+      }
+      buf->start = 0;
+      buf->end = status;
     }
-    LOG("got %d bytes", recv_amt);
-    buf->start = 0;
-    buf->end = recv_amt;
+    assert(buf->start < buf->end);
+
+    int write_amt = n - amt;
+    if (write_amt > buf->end - buf->start) {
+      write_amt = buf->end - buf->start;
+    }
+    memcpy(out + amt, buf->buffer + buf->start, write_amt);
+    buf->start += write_amt;
+    amt += write_amt;
   }
-  assert(buf->start < buf->end);
-  return buf->buffer[buf->start++];
+
+  return amt;
 }
-#define next_byte_or_break(res, client_socket, buf, if_failed)                 \
-  do {                                                                         \
-    int x = next_byte(client_socket, buf);                                     \
-    if (x >= 256)                                                              \
-      goto if_failed;                                                          \
-    else                                                                       \
-      res = x;                                                                 \
-  } while (0)
+
+int write_n_bytes(int sock, int n, char *msg) {
+  int sent_amt = 0;
+  while (sent_amt < n) {
+    int status = await_async_send(sock, msg + sent_amt, n - sent_amt, 0);
+    if (status == -1) {
+      perror("send");
+      return -1;
+    }
+    sent_amt += status;
+  }
+  return sent_amt;
+}
 
 void echo_loop(void *args) {
   int client_socket = (int)(long)args;
@@ -75,39 +88,25 @@ void echo_loop(void *args) {
 
   while (running) {
     char size[4] = {0};
-    next_byte_or_break(size[0], client_socket, &buf, fail);
-    next_byte_or_break(size[1], client_socket, &buf, fail);
-    next_byte_or_break(size[2], client_socket, &buf, fail);
-    next_byte_or_break(size[3], client_socket, &buf, fail);
+    if (read_n_bytes(client_socket, 4, size, &buf) != 4) {
+      goto fail;
+    }
 
     int msg_len = ntohl(*(uint32_t *)size);
     LOG("message length: %d", msg_len);
-    for (int i = 0; i < msg_len; i++) {
-      char c = '\0';
-      next_byte_or_break(c, client_socket, &buf, fail);
-      string_append(&msg, c);
-    }
-    LOG("got message: `%s'", msg.str);
-
-    int sent_amt = 0;
-    while (sent_amt < 4) {
-      int status = await_async_send(client_socket, size, 4, 0);
-      if (status == -1) {
-        perror("send");
-        goto fail;
-      }
-      sent_amt += status;
-    }
-    sent_amt = 0;
-    while (sent_amt < msg_len) {
-      int status = await_async_send(client_socket, msg.str, msg.len, 0);
-      if (status == -1) {
-        perror("send");
-        goto fail;
-      }
-      sent_amt += status;
-    }
     string_clear(&msg);
+    string_resize(&msg, msg_len, '!');
+    if (read_n_bytes(client_socket, msg_len, msg.str, &buf) != msg_len) {
+      goto fail;
+    }
+
+    LOG("got message: `%s'", msg.str);
+    if (write_n_bytes(client_socket, 4, size) != 4) {
+      goto fail;
+    }
+    if (write_n_bytes(client_socket, msg_len, msg.str) != msg_len) {
+      goto fail;
+    }
   }
 fail:
   LOG("%s", "Client left");
@@ -137,9 +136,7 @@ void accept_loop(void *args) {
       continue;
     }
     LOG("%s", "New connection");
-
     Handle h = async_call(echo_loop, (void *)(long)client_socket);
-    LOG("%s", "Client finished");
   }
 }
 
@@ -202,4 +199,6 @@ void async_main(void *args) {
   async_return(NULL);
 }
 
-int main(int argc, char *argv[]) { run_async_main(async_main, "8080"); }
+int main(int argc, char *argv[]) {
+  run_async_main(async_main, (argc == 1 ? "8080" : argv[1]));
+}

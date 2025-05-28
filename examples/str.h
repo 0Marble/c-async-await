@@ -29,5 +29,7 @@ int string_ref_trim_left(StringRef *ref, char c);
 int string_ref_trim_left_ws(StringRef *ref);
 bool string_ref_split_ws_once(StringRef *original, StringRef *token);
 StringRef string_substr(String *s, int start, int len);
+void string_reserve(String *s, int cap);
+void string_resize(String *s, int new_size, char pad_char);
 
 #endif

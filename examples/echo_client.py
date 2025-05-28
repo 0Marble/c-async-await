@@ -1,52 +1,55 @@
 import socket
+import asyncio
+import random
+import sys
 
-def send_length_prefixed_message(sock, message):
-    """Send a message prefixed with its length (as 4-byte big-endian)."""
-    message_bytes = message.encode('utf-8')
-    length_prefix = len(message_bytes).to_bytes(4, byteorder='big')
-    sock.sendall(length_prefix + message_bytes)
+MSG_LEN_MAX = 1000
+ROUND_CNT_MAX = 1000
+CLIENT_CNT = 5000
+SYMBOLS = [chr(c) for c in range(48, 58)] + [chr(c) for c in range(64, 91)] + [chr(c) for c in range(97, 123)]
 
-def receive_length_prefixed_message(sock):
-    """Receive a length-prefixed message."""
-    # Read the 4-byte length prefix
-    length_bytes = sock.recv(4)
-    if not length_bytes:
-        return None  # Connection closed
-    length = int.from_bytes(length_bytes, byteorder='big')
-    
-    # Read the message itself
-    received_bytes = bytearray()
-    while len(received_bytes) < length:
-        chunk = sock.recv(length - len(received_bytes))
-        if not chunk:
-            raise ConnectionError("Connection closed prematurely")
-        received_bytes.extend(chunk)
-    
-    return received_bytes.decode('utf-8')
+def random_msg():
+    msg_len = random.randint(4, MSG_LEN_MAX)
+    msg = "".join(random.choices(SYMBOLS, k=msg_len))
+    return msg
 
-def echo_client(host='127.0.0.1', port=12345):
-    """Connect to an echo server and send length-prefixed messages."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.connect((host, port))
-        print(f"Connected to {host}:{port}")
-        
-        while True:
-            try:
-                message = input("Enter message (or 'quit' to exit): ")
-                if message.lower() == 'quit':
-                    break
-                
-                # Send the message with length prefix
-                send_length_prefixed_message(sock, message)
-                print(f"Sent: {message}")
-                
-                # Receive the echoed response
-                echoed = receive_length_prefixed_message(sock)
-                print(f"Echoed: {echoed}")
-            
-            except (ConnectionError, KeyboardInterrupt) as e:
-                print(f"Error: {e}")
-                break
 
-if __name__ == "__main__":
-    echo_client(port=8080)
+async def do_echo(ip, port):
+    total_bytes_sent = 0
+    reader, writer = await asyncio.open_connection(ip, port)
+    round_cnt = random.randint(1, ROUND_CNT_MAX)
+    for _ in range(round_cnt):
+        msg = random_msg()
+        msg_len = len(msg)
+        len_bytes = msg_len.to_bytes(4, byteorder="big")
+        msg_bytes = msg.encode("utf-8")
+
+        full_msg = len_bytes + msg_bytes
+        total_bytes_sent += len(full_msg)
+        writer.write(full_msg)
+        await writer.drain()
+
+        recv = await reader.readexactly(len(full_msg))
+        recv_len = int.from_bytes(recv[:4], byteorder="big")
+        recv_msg = recv[4:].decode("utf-8")
+        if recv_len != msg_len or recv_msg != msg:
+            print("Expected length", msg_len, "got length", recv_len)
+            print("Expected `", msg, "' got `", recv_msg, "'")
+            assert False
+
+    writer.close()
+    await writer.wait_closed()
+    return total_bytes_sent
+
+
+async def main(ip, port):
+    clients = [asyncio.create_task(do_echo(ip, port)) for _ in range(CLIENT_CNT)]
+    await asyncio.wait(clients)
+    total_bytes = 0
+    for client in clients:
+        total_bytes += await client
+
+    print("Total bytes sent:", total_bytes)
+
+asyncio.run(main("127.0.0.1", sys.argv[1]))
+

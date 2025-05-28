@@ -82,22 +82,40 @@ Handle async_accept(int fd, struct sockaddr *addr, socklen_t *addr_len) {
 }
 
 int await_async_recv(int fd, char *buf, int n, int flags) {
-  Handle h = async_recv(fd, buf, n, flags);
-  int res = (int)(long)await(h);
-  async_free(h);
-  return res;
+  int status = -1;
+  while (true) {
+    status = recv(fd, buf, n, flags);
+    if (status == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+      async_skip();
+    } else {
+      break;
+    }
+  }
+  return status;
 }
 
 int await_async_send(int fd, char *buf, int n, int flags) {
-  Handle h = async_send(fd, buf, n, flags);
-  int res = (int)(long)await(h);
-  async_free(h);
-  return res;
+  int status = -1;
+  while (true) {
+    status = send(fd, buf, n, flags);
+    if (status == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+      async_skip();
+    } else {
+      break;
+    }
+  }
+  return status;
 }
 
 int await_async_accept(int fd, struct sockaddr *addr, socklen_t *addr_len) {
-  Handle h = async_accept(fd, addr, addr_len);
-  int res = (int)(long)await(h);
-  async_free(h);
-  return res;
+  int status = -1;
+  while (true) {
+    status = accept(fd, addr, addr_len);
+    if (status == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+      async_skip();
+    } else {
+      break;
+    }
+  }
+  return status;
 }

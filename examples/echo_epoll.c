@@ -13,17 +13,19 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#ifndef LOG
+#ifndef NOLOG
 #define LOG(fmt, ...)                                                          \
   fprintf(stderr, "[%s:%d] " fmt "\n", __FILE_NAME__, __LINE__, __VA_ARGS__)
+#else
+#define LOG(fmt, ...)
 #endif
 
 #ifndef QUEUE_SIZE
-#define QUEUE_SIZE 10
+#define QUEUE_SIZE 100
 #endif
 
 #ifndef BUF_SIZE
-#define BUF_SIZE 10
+#define BUF_SIZE 256
 #endif
 
 #define EVENTS_CNT 20
@@ -294,7 +296,7 @@ void run_server(Server *s) {
 }
 
 int main(int argc, char *argv[]) {
-  Server s = start_server(NULL, "8080");
+  Server s = start_server(NULL, (argc == 1 ? "8080" : argv[1]));
   run_server(&s);
   stop_server(&s);
 
