@@ -9,7 +9,11 @@ $(BUILD)/async.o: $(SRC)/async.c
 	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
 
 
-$(BUILD)/storage.o: $(SRC)/storage.c 
+$(BUILD)/switch.o: $(SRC)/switch.c 
+	mkdir -p $(BUILD)
+	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
+
+$(BUILD)/scheduler.o: $(SRC)/scheduler.c 
 	mkdir -p $(BUILD)
 	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
 
@@ -21,7 +25,7 @@ $(BUILD)/io.o: $(SRC)/io.c
 	mkdir -p $(BUILD)
 	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
 
-$(BUILD)/libasync.a: $(BUILD)/async.o $(BUILD)/io.o $(BUILD)/queue_scheduler.o $(BUILD)/storage.o
+$(BUILD)/libasync.a: $(BUILD)/async.o $(BUILD)/io.o $(BUILD)/queue_scheduler.o $(BUILD)/scheduler.o $(BUILD)/switch.o
 	mkdir -p $(BUILD)
 	ar r $@ $^
 

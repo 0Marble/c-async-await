@@ -1,4 +1,5 @@
 #include "async.h"
+#include "io.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -76,7 +77,4 @@ void async_main(void *data) {
   async_return((void *)0);
 }
 
-int main(int argc, char **argv) {
-  long res = (long)run_async_main(async_main, NULL);
-  return res;
-}
+int main(int argc, char **argv) { run_async_main(async_main, NULL); }
