@@ -1,4 +1,6 @@
 #include "scheduler.h"
+#include "async.h"
+#include "dbg.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -70,6 +72,11 @@ State poll_state(Handle h) {
   return t->state;
 }
 
+void wait_ready(Handle h) {
+  Scheduler *s = global_scheduler();
+  s->vtable->wait_ready(s->data, h);
+}
+
 void free_task(Handle h) {
   Scheduler *s = global_scheduler();
   TaskPool *p = global_pool();
@@ -104,17 +111,9 @@ void async_deinit() {
 
   for (int i = 0; i < p->len; i++) {
     Task *t = &p->tasks[i];
-    if (t->state != FREE) {
-      free_task(t->handle);
-    }
-  }
-
-  for (Handle h = p->free_task; h.idx != 0;) {
-    Task *t = &p->tasks[h.idx - 1];
-    assert(t->state == FREE);
-    if (munmap(t->stack_base, STACK_SIZE) == -1) {
-      perror("munmap");
-    }
+    // if (munmap(t->stack_base, STACK_SIZE) == -1) {
+    //   perror("munmap");
+    // }
   }
   free(p->tasks);
   *p = (TaskPool){0};
@@ -127,4 +126,7 @@ Scheduler *global_scheduler() { return &scheduler; }
 
 TaskPool *global_pool() { return &pool; }
 
-void async_init() { use_queue_scheduler(); }
+void async_init() {
+  // use_queue_scheduler();
+  use_graph_scheduler();
+}

@@ -2,7 +2,7 @@ BUILD:=build
 SRC:=src
 TESTS:=tests
 EXMPL:=examples
-C_FLAGS:=-fPIC -ggdb 
+C_FLAGS:=-fPIC -ggdb -DDEBUG 
 
 $(BUILD)/async.o: $(SRC)/async.c 
 	mkdir -p $(BUILD)
@@ -21,11 +21,23 @@ $(BUILD)/queue_scheduler.o: $(SRC)/queue_scheduler.c
 	mkdir -p $(BUILD)
 	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
 
+$(BUILD)/graph_scheduler.o: $(SRC)/graph_scheduler.c 
+	mkdir -p $(BUILD)
+	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
+
 $(BUILD)/io.o: $(SRC)/io.c 
 	mkdir -p $(BUILD)
 	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
 
-$(BUILD)/libasync.a: $(BUILD)/async.o $(BUILD)/io.o $(BUILD)/queue_scheduler.o $(BUILD)/scheduler.o $(BUILD)/switch.o
+$(BUILD)/arena.o: $(SRC)/arena.c 
+	mkdir -p $(BUILD)
+	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
+
+$(BUILD)/hashmap.o: $(SRC)/hashmap.c 
+	mkdir -p $(BUILD)
+	gcc -c $(C_FLAGS) -I$(SRC) -o $@ $^
+
+$(BUILD)/libasync.a: $(BUILD)/async.o $(BUILD)/io.o $(BUILD)/queue_scheduler.o $(BUILD)/scheduler.o $(BUILD)/switch.o $(BUILD)/graph_scheduler.o $(BUILD)/arena.o $(BUILD)/hashmap.o
 	mkdir -p $(BUILD)
 	ar r $@ $^
 

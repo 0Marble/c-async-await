@@ -41,6 +41,7 @@ void async_switch_asm(void **f1_stack_ptr, // rdi
 void async_switch(Handle from, Handle to) {
   assert(to.idx != 0);
   DBG("switch %d -> %d", from.idx, to.idx);
+  assert(from.idx != to.idx);
 
   Task *f1 = (from.idx == 0 ? NULL : get_task(from));
   Task *f2 = get_task(to);

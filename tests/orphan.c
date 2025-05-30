@@ -1,6 +1,7 @@
 
 /*
-$$ gcc -o  ./build/tests/orphan ./tests/orphan.c -I src -L build -lasync
+$$ gcc -fPIC -ggdb -fsanitize=address
+$$ -o ./build/tests/orphan ./tests/orphan.c -I src -L build -lasync
 !! ./build/tests/orphan
 
 %%

@@ -32,6 +32,7 @@ typedef void RegisterTask(void *, Handle);
 typedef void FinishTask(void *, Handle *, Handle *);
 typedef void FreeTask(void *, Handle);
 typedef State PollTask(void *, Handle pollee);
+typedef void WaitReady(void *, Handle);
 typedef Handle CurrentTask(void *);
 typedef Handle NextTask(void *);
 typedef void Cleanup(void *);
@@ -41,6 +42,7 @@ typedef struct {
   FinishTask *finish_task;
   FreeTask *free_task;
   PollTask *poll_task;
+  WaitReady *wait_ready;
   CurrentTask *current_task;
   NextTask *next_task;
   Cleanup *cleanup;
@@ -55,11 +57,14 @@ Scheduler *global_scheduler();
 TaskPool *global_pool();
 
 void use_queue_scheduler();
+void use_graph_scheduler();
+
 void async_init();
 Handle start_new_task(AsyncFunction *fn, void *data);
 void free_task(Handle h);
 Task *get_task(Handle h);
 State poll_state(Handle h);
+void wait_ready(Handle h);
 void finish_current_task(Handle *finished_task, Handle *next_task);
 Handle current_task_handle();
 Handle next_task_handle();

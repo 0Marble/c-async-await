@@ -1,6 +1,7 @@
 
 /*
-$$ gcc -o  ./build/tests/two_iters ./tests/two_iters.c -I src -L build -lasync
+$$ gcc -fPIC -ggdb -fsanitize=address
+$$ -o  ./build/tests/two_iters ./tests/two_iters.c -I src -L build -lasync
 !! ./build/tests/two_iters
 
 %% 0 5 -5 0

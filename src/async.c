@@ -32,15 +32,17 @@ void run_async_main(AsyncFunction *main_fn, void *arg) {
 }
 
 void *await(Handle h) {
-  while (poll_state(h) != READY) {
-    async_skip();
-  }
+  wait_ready(h);
   Task *t = get_task(h);
   return t->data;
 }
 
 void async_return(void *data) {
-  Handle finished_task = {0};
+  Handle finished_task = current_task_handle();
+  if (finished_task.idx == 1) {
+    async_deinit();
+    exit((int)(long)data);
+  }
   Handle next_task = {0};
   finish_current_task(&finished_task, &next_task);
   DBG("%d finished with %p", finished_task.idx, data);
@@ -62,7 +64,8 @@ void async_skip() {
   Handle next = next_task_handle();
   Task *t1 = get_task(current);
 
-  async_switch(current, next);
+  if (current.idx != next.idx)
+    async_switch(current, next);
 }
 
 void *await_any(Handle *handles, int len, int *result_idx) {
