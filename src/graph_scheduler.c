@@ -2,7 +2,6 @@
 #include "hashmap.h"
 #include "scheduler.h"
 #include "storage.h"
-#include "switch.h"
 #include <assert.h>
 #include <inttypes.h>
 #include <stdbool.h>
@@ -144,7 +143,7 @@ void graph_wait_ready(void *data, Handle h) {
     verify_queue(&g->queue);
   }
 
-  async_switch(n->h, child->h);
+  async_skip();
   assert(current_task_handle().idx == n->h.idx);
   assert(poll_state(child->h) == READY);
 }
@@ -156,9 +155,7 @@ Handle graph_current_task(void *data) {
   queue_peek_front(&g->queue, &n);
   verify_queue(&g->queue);
   assert(n);
-  if (!n->in_queue) {
-    assert(0);
-  }
+  assert(n->in_queue);
   assert(n->h.idx);
   return n->h;
 }
