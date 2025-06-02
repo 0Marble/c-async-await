@@ -11,6 +11,7 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #ifndef NOLOG
@@ -249,7 +250,19 @@ int client_on_update(Client *client, uint32_t events) {
 
 void run_server(Server *s) {
   LOG("%s", "Running...");
+  int current_client_cnt = 0, max_client_cnt = 0;
+  long server_start_time = time(NULL);
+  long last_message_time = server_start_time;
+
   while (true) {
+    long current_time = time(NULL);
+    if (current_time - last_message_time >= 1) {
+      fprintf(stdout, "%ld, %d\n", current_time - server_start_time,
+              max_client_cnt);
+      fflush(stdout);
+      last_message_time = current_time;
+    }
+
     int cnt = epoll_wait(s->epoll_fd, s->epoll_events, EVENTS_CNT, TIMEOUT);
 
     if (cnt == -1) {
@@ -261,6 +274,11 @@ void run_server(Server *s) {
       Client *client = s->epoll_events[i].data.ptr;
 
       if (client->socket == s->accept_socket) {
+        current_client_cnt++;
+        if (current_client_cnt > max_client_cnt) {
+          max_client_cnt = current_client_cnt;
+        }
+
         struct sockaddr_storage client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
 
@@ -289,6 +307,7 @@ void run_server(Server *s) {
         if (status == -1 || events & EPOLLHUP || events & EPOLLERR) {
           server_close_client(s, client);
           LOG("%s", "client left");
+          current_client_cnt--;
         }
       }
     }

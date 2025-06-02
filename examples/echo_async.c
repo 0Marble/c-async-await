@@ -14,6 +14,7 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #ifndef NOLOG
@@ -30,6 +31,14 @@
 #ifndef BUF_SIZE
 #define BUF_SIZE 256
 #endif
+
+#ifndef SLEEP_TIME
+#define SLEEP_TIME 10000
+#endif
+
+static int current_client_cnt = 0;
+static int max_client_cnt = 0;
+static int bytes_processed = 0;
 
 typedef struct {
   char buffer[BUF_SIZE];
@@ -85,6 +94,10 @@ void echo_loop(void *args) {
   String msg;
   string_init(&msg);
   bool running = true;
+  current_client_cnt++;
+  if (current_client_cnt > max_client_cnt) {
+    max_client_cnt = current_client_cnt;
+  }
 
   while (running) {
     char size[4] = {0};
@@ -94,6 +107,7 @@ void echo_loop(void *args) {
 
     int msg_len = ntohl(*(uint32_t *)size);
     LOG("message length: %d", msg_len);
+    bytes_processed += msg_len;
     string_clear(&msg);
     string_resize(&msg, msg_len, '!');
     if (read_n_bytes(client_socket, msg_len, msg.str, &buf) != msg_len) {
@@ -110,6 +124,8 @@ void echo_loop(void *args) {
   }
 fail:
   LOG("%s", "Client left");
+
+  current_client_cnt--;
 
   string_deinit(&msg);
   shutdown(client_socket, SHUT_RDWR);
@@ -139,6 +155,31 @@ void accept_loop(void *args) {
     Handle h = async_call(echo_loop, (void *)(long)client_socket);
     async_orphan(h);
   }
+}
+
+void server_stats(void *args) {
+  long server_start_time = time(NULL);
+  long last_message_time = server_start_time;
+
+  while (true) {
+    long current_time = time(NULL);
+    if (current_time - last_message_time >= 1) {
+      fprintf(stdout, "%ld, %d, %d\n", current_time - server_start_time,
+              max_client_cnt, bytes_processed);
+      fflush(stdout);
+      bytes_processed = 0;
+      last_message_time = current_time;
+    }
+    struct timespec sleep_delay = {
+        .tv_sec = 0,
+        .tv_nsec = SLEEP_TIME,
+    };
+    if (nanosleep(&sleep_delay, NULL) < 0) {
+      perror("nanosleep:");
+    }
+    async_skip();
+  }
+  async_return(NULL);
 }
 
 void async_main(void *args) {
@@ -192,6 +233,7 @@ void async_main(void *args) {
     perror("fcntl");
     exit(1);
   }
+  async_orphan(async_call(server_stats, NULL));
   await(async_call(accept_loop, &accept_socket));
 
   shutdown(accept_socket, SHUT_RDWR);
