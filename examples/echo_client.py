@@ -78,5 +78,7 @@ async def main(ip, port, msg_len, name):
             task.add_done_callback(lambda t: on_failure(clients, t, cur_clients * 1000, name))
         await asyncio.sleep(10)
 
-asyncio.run(main("127.0.0.1", sys.argv[1], int(sys.argv[2]), sys.argv[3]))
+# ip = "134.209.100.202"
+ip = "127.0.0.1"
+asyncio.run(main(ip, sys.argv[1], int(sys.argv[2]), sys.argv[3]))
 

@@ -107,7 +107,7 @@ void echo_loop(void *args) {
 
     int msg_len = ntohl(*(uint32_t *)size);
     LOG("message length: %d", msg_len);
-    bytes_processed += msg_len;
+    bytes_processed += msg_len + 4;
     string_clear(&msg);
     string_resize(&msg, msg_len, '!');
     if (read_n_bytes(client_socket, msg_len, msg.str, &buf) != msg_len) {

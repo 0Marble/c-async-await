@@ -32,6 +32,8 @@
 #define EVENTS_CNT 20
 #define TIMEOUT 1000
 
+static int bytes_processed = 0;
+
 typedef enum { Reading, Writing } ClientMode;
 
 typedef struct Client {
@@ -216,6 +218,7 @@ int client_on_update(Client *client, uint32_t events) {
     client->msg_ptr = 0;
     client->size_ptr = 0;
     client->mode = Writing;
+    bytes_processed += client->msg.len + 4;
   }
 
   if (client->mode == Writing && events & EPOLLOUT) {
@@ -257,9 +260,10 @@ void run_server(Server *s) {
   while (true) {
     long current_time = time(NULL);
     if (current_time - last_message_time >= 1) {
-      fprintf(stdout, "%ld, %d\n", current_time - server_start_time,
-              max_client_cnt);
+      fprintf(stdout, "%ld, %d, %d\n", current_time - server_start_time,
+              max_client_cnt, bytes_processed);
       fflush(stdout);
+      bytes_processed = 0;
       last_message_time = current_time;
     }
 
