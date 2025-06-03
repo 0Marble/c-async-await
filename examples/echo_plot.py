@@ -10,12 +10,27 @@ def read_latency(path):
     f.close()
     return res
 
-def plot_latencies(out_name, files, titles, plot_title, x_label, scale = "linear"):
+def moving_average(data, n):
+    sum = 0
+    for i in range(0, n):
+        sum += data[i]
+    N = len(data)
+    left = 0
+    right = n
+    res = [sum / n]
+    while right < N:
+        sum -= data[left]
+        sum += data[right]
+        res.append(sum / n)
+        left += 1
+        right += 1
+    return res
+
+def plot_join_latency(out_name, files, titles):
     plt.figure(figsize=(10,6))
-    plt.title(plot_title)
-    plt.xlabel(x_label)
+    plt.title("Joining Latency")
+    plt.xlabel("No. of Clients")
     plt.ylabel("Latency (s)")
-    plt.yscale(scale)
 
     for file, title in zip(files, titles):
         pts = read_latency(file)
@@ -24,7 +39,22 @@ def plot_latencies(out_name, files, titles, plot_title, x_label, scale = "linear
     plt.legend()
     plt.savefig(out_name, dpi=300)
 
+def plot_msg_latency(out_name, files, titles):
+    plt.figure(figsize=(10,6))
+    plt.title("Message Latency")
+    plt.xlabel("Test Duration")
+    plt.ylabel("Latency (s)")
+    plt.yscale("log")
+
+    for file, title in zip(files, titles):
+        pts = moving_average(read_latency(file), 100)
+        plt.plot(pts, label=title)
+
+    plt.legend()
+    plt.savefig(out_name, dpi=300)
+
 def read_server_stats(file_name):
+    print(file_name)
     f = open(file_name)
     reader = csv.reader(f)
     data = [[float(x) for x in row] for row in reader]
@@ -89,7 +119,12 @@ def plot_watch(out_name, data_files, titles):
     mem_axis.legend()
     plt.savefig(out_name, dpi=300)
 
-plot_latencies("echo-out/join_lat.png", ["echo-out/echo-join-lat-async.csv", "echo-out/echo-join-lat-epoll.csv"], ["async", "epoll"], "Joining Latency", "No. of Clients")
-plot_latencies("echo-out/msg_lat.png", ["echo-out/echo-msg-lat-async.csv", "echo-out/echo-msg-lat-epoll.csv"], ["async", "epoll"], "Message Latency", "Test Duration", scale="log")
+plot_join_latency("echo-out/join_lat.png", ["echo-out/echo-join-lat-async.csv", "echo-out/echo-join-lat-epoll.csv"], ["async", "epoll"])
+plot_msg_latency("echo-out/msg_lat.png", ["echo-out/echo-msg-lat-async.csv", "echo-out/echo-msg-lat-epoll.csv"], ["async", "epoll"])
 plot_server_stats("echo-out/server.png", ["echo-out/async-server.csv", "echo-out/epoll-server.csv"], ["async", "epoll"])
 plot_watch("echo-out/watch.png", ["echo-out/async-watch.csv", "echo-out/epoll-watch.csv"], ["async", "epoll"])
+
+plot_join_latency("echo-out/join_lat_remote.png", ["echo-out/echo-join-lat-async-remote.csv", "echo-out/echo-join-lat-epoll-remote.csv"], ["async", "epoll"])
+plot_msg_latency("echo-out/msg_lat_remote.png", ["echo-out/echo-msg-lat-async-remote.csv", "echo-out/echo-msg-lat-epoll-remote.csv"], ["async", "epoll"])
+plot_server_stats("echo-out/server_remote.png", ["echo-out/async-server-remote.csv", "echo-out/epoll-server-remote.csv"], ["async", "epoll"])
+plot_watch("echo-out/watch_remote.png", ["echo-out/async-watch-remote.csv", "echo-out/epoll-watch-remote.csv"], ["async", "epoll"])

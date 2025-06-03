@@ -2,7 +2,7 @@ BUILD:=build
 SRC:=src
 TESTS:=tests
 EXMPL:=examples
-C_FLAGS:=-fPIC -ggdb -DNOLOG
+C_FLAGS:=-fPIC -ggdb -DNOLOG -O3
 
 $(BUILD)/async.o: $(SRC)/async.c 
 	mkdir -p $(BUILD)

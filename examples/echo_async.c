@@ -25,7 +25,7 @@
 #endif
 
 #ifndef QUEUE_SIZE
-#define QUEUE_SIZE 100
+#define QUEUE_SIZE 1000
 #endif
 
 #ifndef BUF_SIZE
@@ -37,7 +37,6 @@
 #endif
 
 static int current_client_cnt = 0;
-static int max_client_cnt = 0;
 static int bytes_processed = 0;
 
 typedef struct {
@@ -50,7 +49,8 @@ int read_n_bytes(int sock, int n, char *out, Buffer *buf) {
   int amt = 0;
   while (amt < n) {
     if (buf->start == buf->end) {
-      int status = await_async_recv(sock, buf->buffer, sizeof(buf->buffer), 0);
+      int status = await_async_recv(sock, buf->buffer, sizeof(buf->buffer),
+                                    MSG_NOSIGNAL);
       if (status == -1) {
         perror("recv");
         return -1;
@@ -95,9 +95,6 @@ void echo_loop(void *args) {
   string_init(&msg);
   bool running = true;
   current_client_cnt++;
-  if (current_client_cnt > max_client_cnt) {
-    max_client_cnt = current_client_cnt;
-  }
 
   while (running) {
     char size[4] = {0};
@@ -165,7 +162,7 @@ void server_stats(void *args) {
     long current_time = time(NULL);
     if (current_time - last_message_time >= 1) {
       fprintf(stdout, "%ld, %d, %d\n", current_time - server_start_time,
-              max_client_cnt, bytes_processed);
+              current_client_cnt, bytes_processed);
       fflush(stdout);
       bytes_processed = 0;
       last_message_time = current_time;

@@ -22,7 +22,7 @@
 #endif
 
 #ifndef QUEUE_SIZE
-#define QUEUE_SIZE 100
+#define QUEUE_SIZE 1000
 #endif
 
 #ifndef BUF_SIZE
@@ -225,7 +225,7 @@ int client_on_update(Client *client, uint32_t events) {
     if (client->size_ptr < 4) {
       char *buf = &client->size[client->size_ptr];
       int buf_size = 4 - client->size_ptr;
-      int status = send(client->socket, buf, buf_size, 0);
+      int status = send(client->socket, buf, buf_size, MSG_NOSIGNAL);
       if (status == -1) {
         perror("send size");
         return -1;
@@ -234,7 +234,7 @@ int client_on_update(Client *client, uint32_t events) {
     } else if (client->msg_ptr < client->msg.len) {
       char *buf = &client->msg.str[client->msg_ptr];
       int buf_size = client->msg.len - client->msg_ptr;
-      int status = send(client->socket, buf, buf_size, 0);
+      int status = send(client->socket, buf, buf_size, MSG_NOSIGNAL);
       if (status == -1) {
         perror("send msg");
         return -1;

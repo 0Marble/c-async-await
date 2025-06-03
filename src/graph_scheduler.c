@@ -2,6 +2,7 @@
 #include "hashmap.h"
 #include "scheduler.h"
 #include "storage.h"
+#include "switch.h"
 #include <assert.h>
 #include <inttypes.h>
 #include <stdbool.h>
@@ -127,6 +128,7 @@ void graph_wait_ready(void *data, Handle h) {
   assert(n->in_queue);
   assert(n->h.idx);
   n->in_queue = false;
+  Handle parent = n->h;
   HashNode *hash_node =
       hash_map_find(&g->handle_to_node, (void *)(long)h.idx, sizeof(int));
   assert(hash_node);
@@ -142,9 +144,13 @@ void graph_wait_ready(void *data, Handle h) {
     queue_push_front(&g->queue, child);
     verify_queue(&g->queue);
   }
-
-  async_skip();
-  assert(current_task_handle().idx == n->h.idx);
+  Node *next = NULL;
+  queue_peek_front(&g->queue, &next);
+  assert(next);
+  assert(next->h.idx);
+  assert(next->in_queue);
+  async_switch(parent, next->h);
+  assert(current_task_handle().idx == parent.idx);
   assert(poll_state(child->h) == READY);
 }
 
