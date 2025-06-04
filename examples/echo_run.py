@@ -55,6 +55,7 @@ async def run_client(client, ip, port, out, name):
     await writer.drain()
     writer.close()
     await writer.wait_closed()
+    await asyncio.sleep(10)
 
 async def run_server_listener(reader, writer, server, port, out, name, serv):
     print(f"[{name}]: starting server, port {port}")
@@ -86,8 +87,8 @@ async def run_server_listener(reader, writer, server, port, out, name, serv):
     print(watch_stdout, file=f)
     f.close()
 
-    serv.close_clients()
     serv.close()
+    serv.close_clients()
     print("[RUNNER]: listener closed")
 
 async def run_server(server, listener_port, out, name):
