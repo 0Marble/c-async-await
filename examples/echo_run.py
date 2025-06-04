@@ -5,10 +5,10 @@ import asyncio
 import random
 import argparse
 
-async def run_watch(server_pid):
+async def run_watch(name, server_pid):
     s = ""
-    script = f"top -b -n 2 -d 0.2 -p {server_pid} | tail -1 |" + " awk '{print $9,$10}'"
     try:
+        script = f"top -b -n 2 -d 0.2 -p {server_pid} | tail -1 |" + " awk '{print $9,$10}'"
         while True:
             await asyncio.sleep(1)
             ps_proc = await asyncio.subprocess.create_subprocess_shell(
@@ -16,8 +16,11 @@ async def run_watch(server_pid):
                 stdout=asyncio.subprocess.PIPE
             ) 
             ps_res = await ps_proc.wait()
-            s = s + (await ps_proc.stdout.read()).decode("utf-8") 
+            new_stat = (await ps_proc.stdout.read()).decode("utf-8")
+            print(f"[{name}]: watcher {new_stat}", file=sys.stderr)
+            s = s + new_stat
     finally:
+        print(f"[{name}]: watcher closed", file=sys.stderr)
         return s
 
 async def run_client(client, ip, port, out, name):
@@ -50,6 +53,8 @@ async def run_client(client, ip, port, out, name):
     print(f"[{name}]: client finished", file=sys.stderr)
     writer.write("END".encode("utf-8"))
     await writer.drain()
+    writer.close()
+    await writer.wait_closed()
 
 async def run_server_listener(reader, writer, server, port, out, name, serv):
     print(f"[{name}]: starting server, port {port}")
@@ -62,16 +67,12 @@ async def run_server_listener(reader, writer, server, port, out, name, serv):
     server_proc = await asyncio.subprocess.create_subprocess_exec(
         server, str(port), stdout=asyncio.subprocess.PIPE,
     )
-    watch_task = asyncio.create_task(run_watch(server_proc.pid))
+    watch_task = asyncio.create_task(run_watch(name, server_proc.pid))
     server_task = asyncio.create_task(server_proc.wait())
-    listen_to_end_task = asyncio.create_task(reader.readexactly(len("END")))
-    await asyncio.wait(
-        [watch_task, server_task, listen_to_end_task], 
-        return_when=asyncio.FIRST_COMPLETED
-    )
-    msg = (await listen_to_end_task).decode("utf-8") 
+    msg = (await reader.readexactly(len("END"))).decode("utf-8") 
     print(f"[{name}]: got `{msg}' message from client", file=sys.stderr)
     assert msg == "END"
+    await asyncio.sleep(1)
 
     server_proc.kill()
     watch_task.cancel()
