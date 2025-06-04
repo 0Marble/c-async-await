@@ -16,7 +16,7 @@ async def run_watch(server_pid):
         return s
 
 
-async def run_instance(server, client, port, count, name):
+async def run_instance(server, client, ip, port, name):
     server_proc = await asyncio.subprocess.create_subprocess_exec(
         server, 
         port,
@@ -26,9 +26,9 @@ async def run_instance(server, client, port, count, name):
     client_proc = await asyncio.subprocess.create_subprocess_exec(
         "python",
         client,
-        port,
-        count,
-        name,
+        "--ip", ip,
+        "--port", port,
+        "--name", name,
         stdout=asyncio.subprocess.PIPE,
     )
     watch_task = asyncio.create_task(run_watch(server_proc.pid))
@@ -58,7 +58,7 @@ async def free_ports(ports):
         proc = await asyncio.subprocess.create_subprocess_shell(f"fuser -k {p}/tcp")
         await asyncio.create_task(proc.wait())
 
-async def main():
+async def main(ip="127.0.0.1"):
     output_dir = "echo-out"
     if output_dir not in os.listdir():
         os.mkdir(output_dir)
@@ -72,14 +72,14 @@ async def main():
     t1 = asyncio.create_task(run_instance(
         "build/examples/echo_async", 
         "examples/echo_client_stress.py", 
+        ip,
         str(p1), 
-        "1000", 
         "async-stress"))
     t2 = asyncio.create_task(run_instance(
         "build/examples/echo_epoll", 
         "examples/echo_client_stress.py", 
+        ip,
         str(p2), 
-        "1000", 
         "epoll-stress"))
     await asyncio.wait([t1, t2])
     await t1
@@ -94,14 +94,12 @@ async def main():
     t1 = asyncio.create_task(run_instance(
         "build/examples/echo_async", 
         "examples/echo_client_throughput.py", 
-        str(p1), 
-        "10000", 
+        ip, str(p1), 
         "async-throughput"))
     t2 = asyncio.create_task(run_instance(
         "build/examples/echo_epoll", 
         "examples/echo_client_throughput.py", 
-        str(p2), 
-        "10000", 
+        ip, str(p2), 
         "epoll-throughput"))
 
     await asyncio.wait([t1, t2])

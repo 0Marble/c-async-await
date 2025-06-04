@@ -3,6 +3,7 @@ import asyncio
 import random
 import sys
 import time
+import argparse
 
 SYMBOLS = [chr(c) for c in range(48, 58)] + [chr(c) for c in range(64, 91)] + [chr(c) for c in range(97, 123)]
 
@@ -126,7 +127,30 @@ async def main(ip, port, client_cnt, name):
         clients[i] = await clients[i]
         assert type(clients[i]) == Echo
 
-# ip = "134.209.100.202"
-ip = "127.0.0.1"
-asyncio.run(main(ip, sys.argv[1], int(sys.argv[2]), sys.argv[3]))
+parser = argparse.ArgumentParser(
+    prog="echo_client_stress",
+)
+parser.add_argument(
+    "--ip",
+    required=False,
+    default="127.0.0.1",
+)
+parser.add_argument(
+    "--port",
+    required=False,
+    default="8080",
+)
+parser.add_argument(
+    "--client_cnt",
+    type=int,
+    required=False,
+    default=10000,
+)
+parser.add_argument(
+    "--name",
+    required=True,
+)
+
+args = parser.parse_args(sys.argv[1:])
+asyncio.run(main(args.ip, args.port, args.client_cnt, args.name))
 
