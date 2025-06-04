@@ -19,6 +19,25 @@ class Echo:
         self.bytes_sent = 0
         self.connected = False
 
+    async def echo_round(self, msg):
+        msg_len = len(msg)
+        len_bytes = msg_len.to_bytes(4, byteorder="big")
+        msg_bytes = msg.encode("utf-8")
+
+        full_msg = len_bytes + msg_bytes
+        self.writer.write(full_msg)
+        await self.writer.drain()
+        self.bytes_sent += len(full_msg)
+
+        recv = await self.reader.readexactly(len(full_msg))
+
+        recv_len = int.from_bytes(recv[:4], byteorder="big")
+        recv_msg = recv[4:].decode("utf-8")
+        if recv_len != msg_len or recv_msg != msg:
+            print("Expected length", msg_len, "got length", recv_len, file=sys.stderr)
+            print("Expected `", msg, "' got `", recv_msg, "'", file=sys.stderr)
+            assert False
+
     async def connect(self):
         global msg_latencies
         try:
@@ -26,8 +45,10 @@ class Echo:
             self.reader, self.writer = await asyncio.open_connection(self.ip, self.port)
             end = time.time()
             join_latencies.append(end - start)
+            await self.echo_round("hello")
             self.connected = True
-        except:
+        except Exception as e:
+            print(e, file = sys.stderr)
             self.connected = False
 
         return self
@@ -41,23 +62,7 @@ class Echo:
         while send_messages:
             try:
                 msg = "".join(random.choices(SYMBOLS, k=msg_len))
-                len_bytes = msg_len.to_bytes(4, byteorder="big")
-                msg_bytes = msg.encode("utf-8")
-
-                full_msg = len_bytes + msg_bytes
-                self.writer.write(full_msg)
-                await self.writer.drain()
-                self.bytes_sent += len(full_msg)
-
-                recv = await self.reader.readexactly(len(full_msg))
-
-                recv_len = int.from_bytes(recv[:4], byteorder="big")
-                recv_msg = recv[4:].decode("utf-8")
-                if recv_len != msg_len or recv_msg != msg:
-                    print("Expected length", msg_len, "got length", recv_len, file=sys.stderr)
-                    print("Expected `", msg, "' got `", recv_msg, "'", file=sys.stderr)
-                    assert False
-
+                await self.echo_round(msg)
             except Exception as e:
                 print(e)
                 break
@@ -76,7 +81,7 @@ def do_exit(name, cnt):
     had_error = True 
     send_messages = False
     print(f"[{name}]: failed at {cnt}", file = sys.stderr)
-    f = open(f"echo-out/echo-join-lat-{name}.csv", "w")
+    f = open(f"echo-out/{name}-join-lat.csv", "w")
     for l in join_latencies:
         print(l, file=f)
     f.close()

@@ -253,7 +253,7 @@ int client_on_update(Client *client, uint32_t events) {
 
 void run_server(Server *s) {
   LOG("%s", "Running...");
-  int current_client_cnt = 0, max_client_cnt = 0;
+  int current_client_cnt = 0;
   long server_start_time = time(NULL);
   long last_message_time = server_start_time;
 
@@ -261,7 +261,7 @@ void run_server(Server *s) {
     long current_time = time(NULL);
     if (current_time - last_message_time >= 1) {
       fprintf(stdout, "%ld, %d, %d\n", current_time - server_start_time,
-              max_client_cnt, bytes_processed);
+              current_client_cnt, bytes_processed);
       fflush(stdout);
       bytes_processed = 0;
       last_message_time = current_time;
@@ -279,9 +279,6 @@ void run_server(Server *s) {
 
       if (client->socket == s->accept_socket) {
         current_client_cnt++;
-        if (current_client_cnt > max_client_cnt) {
-          max_client_cnt = current_client_cnt;
-        }
 
         struct sockaddr_storage client_addr;
         socklen_t client_addr_len = sizeof(client_addr);

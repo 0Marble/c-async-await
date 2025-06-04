@@ -63,27 +63,27 @@ async def main():
     if output_dir not in os.listdir():
         os.mkdir(output_dir)
 
-    # p1 = random.randint(8000, 9000)
-    # p2 = random.randint(8000, 9000)
-    # while p1 == p2:
-    #     p2 = random.randint(8000, 9000)
-    # await free_ports([str(p1), str(p2)])
-    #
-    # t1 = asyncio.create_task(run_instance(
-    #     "build/examples/echo_async", 
-    #     "examples/echo_client_stress.py", 
-    #     str(p1), 
-    #     "1000", 
-    #     "async-stress"))
-    # t2 = asyncio.create_task(run_instance(
-    #     "build/examples/echo_epoll", 
-    #     "examples/echo_client_stress.py", 
-    #     str(p2), 
-    #     "1000", 
-    #     "epoll-stress"))
-    # await asyncio.wait([t1, t2])
-    # await t1
-    # await t2
+    p1 = random.randint(8000, 9000)
+    p2 = random.randint(8000, 9000)
+    while p1 == p2:
+        p2 = random.randint(8000, 9000)
+    await free_ports([str(p1), str(p2)])
+
+    t1 = asyncio.create_task(run_instance(
+        "build/examples/echo_async", 
+        "examples/echo_client_stress.py", 
+        str(p1), 
+        "1000", 
+        "async-stress"))
+    t2 = asyncio.create_task(run_instance(
+        "build/examples/echo_epoll", 
+        "examples/echo_client_stress.py", 
+        str(p2), 
+        "1000", 
+        "epoll-stress"))
+    await asyncio.wait([t1, t2])
+    await t1
+    await t2
 
     p1 = random.randint(8000, 9000)
     p2 = random.randint(8000, 9000)

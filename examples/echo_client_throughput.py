@@ -18,8 +18,31 @@ class Echo:
         self.bytes_sent = 0
         self.connected = False
 
+    async def echo_round(self, msg):
+        msg_len = len(msg)
+        len_bytes = msg_len.to_bytes(4, byteorder="big")
+        msg_bytes = msg.encode("utf-8")
+
+        full_msg = len_bytes + msg_bytes
+        self.writer.write(full_msg)
+        await self.writer.drain()
+        self.bytes_sent += len(full_msg)
+
+        msg_wait_start = time.time()
+        recv = await self.reader.readexactly(len(full_msg))
+        msg_wait_end = time.time()
+        msg_latencies.append(msg_wait_end - msg_wait_start)
+
+        recv_len = int.from_bytes(recv[:4], byteorder="big")
+        recv_msg = recv[4:].decode("utf-8")
+        if recv_len != msg_len or recv_msg != msg:
+            print("Expected length", msg_len, "got length", recv_len, file=sys.stderr)
+            print("Expected `", msg, "' got `", recv_msg, "'", file=sys.stderr)
+            assert False
+
     async def connect(self):
         self.reader, self.writer = await asyncio.open_connection(self.ip, self.port)
+        await self.echo_round("foo")
         self.connected = True
         return self
 
@@ -31,25 +54,7 @@ class Echo:
         while in_messages:
             try:
                 msg = "".join(random.choices(SYMBOLS, k=msg_len))
-                len_bytes = msg_len.to_bytes(4, byteorder="big")
-                msg_bytes = msg.encode("utf-8")
-
-                full_msg = len_bytes + msg_bytes
-                self.writer.write(full_msg)
-                await self.writer.drain()
-                self.bytes_sent += len(full_msg)
-
-                msg_wait_start = time.time()
-                recv = await self.reader.readexactly(len(full_msg))
-                msg_wait_end = time.time()
-                msg_latencies.append(msg_wait_end - msg_wait_start)
-
-                recv_len = int.from_bytes(recv[:4], byteorder="big")
-                recv_msg = recv[4:].decode("utf-8")
-                if recv_len != msg_len or recv_msg != msg:
-                    print("Expected length", msg_len, "got length", recv_len, file=sys.stderr)
-                    print("Expected `", msg, "' got `", recv_msg, "'", file=sys.stderr)
-                    assert False
+                await self.echo_round(msg)
 
             except Exception as e:
                 print(e)
@@ -103,6 +108,10 @@ async def main(ip, port, client_cnt, name):
 
         print(f"[{name}]: sent {bytes_sent} bytes", file=sys.stderr)
         print(msg_len, ", ", bytes_sent)
+        f = open(f"echo-out/{name}-{msg_len}-msg-lat.csv", "w")
+        for l in msg_latencies:
+            print(l, file=f)
+        f.close()
         await asyncio.sleep(1)
 
     for i in range(0, client_cnt // clients_in_batch):

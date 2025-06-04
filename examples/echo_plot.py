@@ -4,26 +4,11 @@ import matplotlib.pyplot as plt
 import csv
 
 def read_latency(path):
+    print(path)
     f = open(path, "r")
     reader = csv.reader(f)
     res = [float(row[0]) for row in reader]
     f.close()
-    return res
-
-def moving_average(data, n):
-    sum = 0
-    for i in range(0, n):
-        sum += data[i]
-    N = len(data)
-    left = 0
-    right = n
-    res = [sum / n]
-    while right < N:
-        sum -= data[left]
-        sum += data[right]
-        res.append(sum / n)
-        left += 1
-        right += 1
     return res
 
 def plot_join_latency(out_name, files, titles):
@@ -38,20 +23,7 @@ def plot_join_latency(out_name, files, titles):
 
     plt.legend()
     plt.savefig(out_name, dpi=300)
-
-def plot_msg_latency(out_name, files, titles):
-    plt.figure(figsize=(10,6))
-    plt.title("Message Latency")
-    plt.xlabel("Test Duration")
-    plt.ylabel("Latency (s)")
-    plt.yscale("log")
-
-    for file, title in zip(files, titles):
-        pts = moving_average(read_latency(file), 100)
-        plt.plot(pts, label=title)
-
-    plt.legend()
-    plt.savefig(out_name, dpi=300)
+    plt.close()
 
 def read_server_stats(file_name):
     print(file_name)
@@ -89,8 +61,10 @@ def plot_server_stats(out_name, data_files, titles):
     clients_num_axis.legend()
     bytes_processed_axis.legend()
     plt.savefig(out_name, dpi=300)
+    plt.close()
 
 def read_watch(file_name):
+    print(file_name)
     f = open(file_name)
     reader = csv.reader(f, delimiter=' ')
     data = [[float(x) for x in row] for row in reader]
@@ -118,13 +92,44 @@ def plot_watch(out_name, data_files, titles):
     cpu_axis.legend()
     mem_axis.legend()
     plt.savefig(out_name, dpi=300)
+    plt.close()
 
-plot_join_latency("echo-out/join_lat.png", ["echo-out/echo-join-lat-async.csv", "echo-out/echo-join-lat-epoll.csv"], ["async", "epoll"])
-plot_msg_latency("echo-out/msg_lat.png", ["echo-out/echo-msg-lat-async.csv", "echo-out/echo-msg-lat-epoll.csv"], ["async", "epoll"])
-plot_server_stats("echo-out/server.png", ["echo-out/async-server.csv", "echo-out/epoll-server.csv"], ["async", "epoll"])
-plot_watch("echo-out/watch.png", ["echo-out/async-watch.csv", "echo-out/epoll-watch.csv"], ["async", "epoll"])
+def plot_msg_latency(out_name, data_files, titles):
+    plt.figure(figsize=(10,6))
+    plt.title("Message Latency CDF")
+    plt.xlabel("Latency (s)")
+    plt.xscale("log")
 
-plot_join_latency("echo-out/join_lat_remote.png", ["echo-out/echo-join-lat-async-remote.csv", "echo-out/echo-join-lat-epoll-remote.csv"], ["async", "epoll"])
-plot_msg_latency("echo-out/msg_lat_remote.png", ["echo-out/echo-msg-lat-async-remote.csv", "echo-out/echo-msg-lat-epoll-remote.csv"], ["async", "epoll"])
-plot_server_stats("echo-out/server_remote.png", ["echo-out/async-server-remote.csv", "echo-out/epoll-server-remote.csv"], ["async", "epoll"])
-plot_watch("echo-out/watch_remote.png", ["echo-out/async-watch-remote.csv", "echo-out/epoll-watch-remote.csv"], ["async", "epoll"])
+    for file, title in zip(data_files, titles):
+        data = read_latency(file)
+        plt.ecdf(data, label=title)
+
+    plt.legend()
+    plt.savefig(out_name, dpi=300)
+    plt.close()
+    pass
+
+plot_join_latency("echo-out/join_lat.png", ["echo-out/async-stress-join-lat.csv", "echo-out/epoll-stress-join-lat.csv"], ["async", "epoll"])
+plot_server_stats("echo-out/server-stress.png", ["echo-out/async-stress-server.csv", "echo-out/epoll-stress-server.csv"], ["async", "epoll"])
+plot_watch("echo-out/watch-stress.png", ["echo-out/async-stress-watch.csv", "echo-out/epoll-stress-watch.csv"], ["async", "epoll"])
+plot_server_stats("echo-out/server-throughput.png", ["echo-out/async-throughput-server.csv", "echo-out/epoll-throughput-server.csv"], ["async", "epoll"])
+plot_watch("echo-out/watch-throughput.png", ["echo-out/async-throughput-watch.csv", "echo-out/epoll-throughput-watch.csv"], ["async", "epoll"])
+plot_msg_latency("echo-out/msg-latency.png", [
+    "echo-out/async-throughput-100-msg-lat.csv", 
+    "echo-out/epoll-throughput-100-msg-lat.csv",
+    "echo-out/async-throughput-1000-msg-lat.csv", 
+    "echo-out/epoll-throughput-1000-msg-lat.csv",
+    "echo-out/async-throughput-10000-msg-lat.csv", 
+    "echo-out/epoll-throughput-10000-msg-lat.csv",
+    "echo-out/async-throughput-100000-msg-lat.csv", 
+    "echo-out/epoll-throughput-100000-msg-lat.csv",
+], [
+    "async-100", 
+    "epoll-100",
+    "async-1000", 
+    "epoll-1000",
+    "async-10000", 
+    "epoll-10000",
+    "async-100000", 
+    "epoll-100000",
+])
