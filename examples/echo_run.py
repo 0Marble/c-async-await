@@ -122,8 +122,10 @@ async def run_instance(server, client, name, args):
         await server_task
 
 async def main(args):
-    if args.out not in os.listdir():
+    try:
         os.mkdir(args.out)
+    except FileExistsError:
+        pass
 
     if "all" in args.tests or "throughput" in args.tests:
         await run_instance(

@@ -8,7 +8,6 @@ import argparse
 SYMBOLS = [chr(c) for c in range(48, 58)] + [chr(c) for c in range(64, 91)] + [chr(c) for c in range(97, 123)]
 
 msg_latencies = []
-in_messages = False
 
 class Echo:
     def __init__(self, ip, port):
@@ -47,12 +46,11 @@ class Echo:
         self.connected = True
         return self
 
-    async def do_echo(self, msg_len):
+    async def do_echo(self, msg_len, msg_cnt):
         global msg_latencies
-        global in_messages
 
         self.bytes_sent = 0
-        while in_messages:
+        for i in range(0, msg_cnt):
             try:
                 msg = "".join(random.choices(SYMBOLS, k=msg_len))
                 await self.echo_round(msg)
@@ -70,9 +68,8 @@ class Echo:
 
 async def main(ip, port, client_cnt, name):
     global msg_latencies
-    global in_messages
 
-    run_time = 30
+    msg_cnt = 10
     clients_in_batch = 1000
 
     print(f"[{name}]: joining the server", file=sys.stderr)
@@ -90,25 +87,22 @@ async def main(ip, port, client_cnt, name):
     for msg_len in [100, 500, 1000, 5000, 10000, 50000, 100000]:
         msg_latencies = []
         print(f"[{name}]: starting test with msg_len={msg_len}", file=sys.stderr)
-        in_messages = True
+        start = time.time()
         for i in range(len(clients)):
             assert type(clients[i]) == Echo
-            clients[i] = asyncio.create_task(clients[i].do_echo(msg_len))
-        print(f"[{name}]: running for {run_time}s...", file=sys.stderr)
-        await asyncio.sleep(run_time)
-        print(f"[{name}]: done", file=sys.stderr)
-        in_messages = False
-
+            clients[i] = asyncio.create_task(clients[i].do_echo(msg_len, msg_cnt))
         bytes_sent = 0
         await asyncio.wait(clients, return_when=asyncio.ALL_COMPLETED)
+        end = time.time()
+        print(f"[{name}]: done", file=sys.stderr)
 
         for i in range(client_cnt):
             clients[i] = await clients[i]
             assert type(clients[i]) == Echo
             bytes_sent += client.bytes_sent
 
-        print(f"[{name}]: sent {bytes_sent} bytes", file=sys.stderr)
-        print(msg_len, ", ", bytes_sent)
+        print(f"[{name}]: sent {bytes_sent} bytes over {end-start}s", file=sys.stderr)
+        print(msg_len, ",", bytes_sent, ",", end - start)
         f = open(f"echo-out/{name}-{msg_len}-msg-lat.csv", "w")
         for l in msg_latencies:
             print(l, file=f)
@@ -144,7 +138,7 @@ parser.add_argument(
     "--client_cnt",
     type=int,
     required=False,
-    default=10000,
+    default=5000,
 )
 parser.add_argument(
     "--name",

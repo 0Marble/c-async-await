@@ -1,3 +1,5 @@
 build
 echo-out
+echo-out-local
+echo-out-remote
 

@@ -6,6 +6,42 @@
 #include <stdlib.h>
 #include <string.h>
 
+// #define BUF_SIZE 16 * 1024 * 1024
+// char string_buf[BUF_SIZE] = {0};
+// size_t buf_ptr = 0;
+//
+// static void free(void *ptr) {}
+//
+// static void *calloc(size_t n, size_t elem_size) {
+//   assert(n > 0);
+//   int byte_cnt = n * elem_size;
+//   assert(buf_ptr + byte_cnt + 4 < BUF_SIZE);
+//   char *size_ptr = string_buf + buf_ptr;
+//   char *ptr = string_buf + buf_ptr + 4;
+//   *(int *)size_ptr = byte_cnt;
+//   memset(ptr, 0, byte_cnt);
+//   buf_ptr += byte_cnt + 4;
+//   return ptr;
+// }
+//
+// static void *realloc(void *old, size_t new_size) {
+//   if (old == NULL) {
+//     return calloc(new_size, 1);
+//   }
+//   int old_size = *(int *)(old - 4);
+//   if (new_size == old_size) {
+//     return old;
+//   }
+//   char *new = calloc(new_size, 1);
+//   assert(old_size > 0);
+//   if (old_size < new_size) {
+//     memcpy(new, old, old_size);
+//   } else {
+//     memcpy(new, old, new_size);
+//   }
+//   return new;
+// }
+
 void string_init(String *str) { *str = (String){0}; }
 void string_deinit(String *str) {
   if (str->cap != 0) {
@@ -157,10 +193,12 @@ void string_resize(String *s, int new_size, char pad_char) {
     if (s->cap != 0) {
       s->str[s->len] = '\0';
     }
-    return;
   } else {
-    for (; s->len < new_size;) {
-      string_append(s, pad_char);
-    }
+    s->cap = new_size + 1;
+    s->str = realloc(s->str, s->cap);
+    assert(s->str);
+    memset(s->str + s->len, pad_char, s->cap);
+    s->len = new_size;
+    s->str[s->len] = '\0';
   }
 }
