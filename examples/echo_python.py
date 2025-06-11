@@ -10,7 +10,6 @@ async def echo_round(r, w):
     msg_len = int.from_bytes(msg_len_bytes, "big")
     msg_bytes = await r.readexactly(msg_len)
     msg = msg_bytes.decode("utf-8")
-    print(msg, file=sys.stderr)
 
     w.write(msg_len_bytes)
     await w.drain()
@@ -38,11 +37,13 @@ async def log_stats():
     while True:
         await asyncio.sleep(1)
         print(f"{i}, {current_users}, {bytes_processed}")
+        i += 1
         bytes_processed = 0
 
 async def run_server(port):
     asyncio.create_task(log_stats())
     serv = await asyncio.start_server(run_client, port = port)
+    print(f"started at ::{port}", file = sys.stderr)
     try:
         await serv.start_serving()
         await serv.serve_forever()

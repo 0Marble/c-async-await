@@ -124,113 +124,131 @@ def plot_throughput(out_name, data_files, titles):
     plt.close()
 
 try:
-    plot_join_latency("echo-out/local-join_lat.png", ["echo-out/local-async-stress-join-lat.csv", "echo-out/local-epoll-stress-join-lat.csv"], ["async", "epoll"])
-except FileNotFoundError:
+    plot_join_latency("echo-out/local-join_lat.png", ["echo-out/local-async-stress-join-lat.csv", "echo-out/local-epoll-stress-join-lat.csv", "echo-out/local-python-stress-join-lat.csv"], ["async", "epoll", "python"])
+except:
     pass    
 
 try:
-    plot_server_stats("echo-out/local-server-stress.png", ["echo-out/local-async-stress-server.csv", "echo-out/local-epoll-stress-server.csv"], ["async", "epoll"])
-except FileNotFoundError:
+    plot_server_stats("echo-out/local-server-stress.png", ["echo-out/local-async-stress-server.csv", "echo-out/local-epoll-stress-server.csv", "echo-out/local-python-stress-server.csv"], ["async", "epoll", "python"])
+except:
     pass    
 
 try:
-    plot_watch("echo-out/local-watch-stress.png", ["echo-out/local-async-stress-watch.csv", "echo-out/local-epoll-stress-watch.csv"], ["async", "epoll"])
-except FileNotFoundError:
+    plot_watch("echo-out/local-watch-stress.png", ["echo-out/local-async-stress-watch.csv", "echo-out/local-epoll-stress-watch.csv", "echo-out/local-python-stress-watch.csv"], ["async", "epoll", "python"])
+except:
     pass    
 
 try:
-    plot_server_stats("echo-out/local-server-throughput.png", ["echo-out/local-async-throughput-server.csv", "echo-out/local-epoll-throughput-server.csv"], ["async", "epoll"])
-except FileNotFoundError:
+    plot_server_stats("echo-out/local-server-throughput.png", ["echo-out/local-async-throughput-server.csv", "echo-out/local-epoll-throughput-server.csv","echo-out/local-python-throughput-server.csv"], ["async", "epoll", "python"])
+except:
     pass
 
 try:
-    plot_watch("echo-out/local-watch-throughput.png", ["echo-out/local-async-throughput-watch.csv", "echo-out/local-epoll-throughput-watch.csv"], ["async", "epoll"])
-except FileNotFoundError:
+    plot_watch("echo-out/local-watch-throughput.png", ["echo-out/local-async-throughput-watch.csv", "echo-out/local-epoll-throughput-watch.csv", "echo-out/local-python-throughput-watch.csv"], ["async", "epoll", "python"])
+except:
     pass
 
 try:
     plot_msg_latency("echo-out/local-msg-latency.png", [
         "echo-out/local-async-throughput-100-msg-lat.csv", 
-        "echo-out/local-epoll-throughput-100-msg-lat.csv",
         "echo-out/local-async-throughput-1000-msg-lat.csv", 
-        "echo-out/local-epoll-throughput-1000-msg-lat.csv",
         "echo-out/local-async-throughput-10000-msg-lat.csv", 
-        "echo-out/local-epoll-throughput-10000-msg-lat.csv",
         "echo-out/local-async-throughput-100000-msg-lat.csv", 
+        "echo-out/local-epoll-throughput-100-msg-lat.csv",
+        "echo-out/local-epoll-throughput-1000-msg-lat.csv",
+        "echo-out/local-epoll-throughput-10000-msg-lat.csv",
         "echo-out/local-epoll-throughput-100000-msg-lat.csv",
+        "echo-out/local-python-throughput-100-msg-lat.csv",
+        "echo-out/local-python-throughput-1000-msg-lat.csv",
+        "echo-out/local-python-throughput-10000-msg-lat.csv",
+        "echo-out/local-python-throughput-100000-msg-lat.csv",
     ], [
         "async-100", 
-        "epoll-100",
         "async-1000", 
-        "epoll-1000",
         "async-10000", 
-        "epoll-10000",
         "async-100000", 
+        "epoll-100",
+        "epoll-1000",
+        "epoll-10000",
         "epoll-100000",
+        "python-100",
+        "python-1000",
+        "python-10000",
+        "python-100000",
     ])
-except FileNotFoundError:
+except:
     pass
 
 try:
-    plot_join_latency("echo-out/remote-join_lat.png", ["echo-out/remote-async-stress-join-lat.csv", "echo-out/remote-epoll-stress-join-lat.csv"], ["async", "epoll"])
-except FileNotFoundError:
+    plot_join_latency("echo-out/remote-join_lat.png", ["echo-out/remote-async-stress-join-lat.csv", "echo-out/remote-epoll-stress-join-lat.csv", "echo-out/remote-python-stress-join-lat.csv"], ["async", "epoll", "python"])
+except:
     pass    
 
 try:
-    plot_server_stats("echo-out/remote-server-stress.png", ["echo-out/remote-async-stress-server.csv", "echo-out/remote-epoll-stress-server.csv"], ["async", "epoll"])
-except FileNotFoundError:
+    plot_server_stats("echo-out/remote-server-stress.png", ["echo-out/remote-async-stress-server.csv", "echo-out/remote-epoll-stress-server.csv", "echo-out/remote-python-stress-server.csv"], ["async", "epoll", "python"])
+except:
     pass    
 
 try:
-    plot_watch("echo-out/remote-watch-stress.png", ["echo-out/remote-async-stress-watch.csv", "echo-out/remote-epoll-stress-watch.csv"], ["async", "epoll"])
-except FileNotFoundError:
+    plot_watch("echo-out/remote-watch-stress.png", ["echo-out/remote-async-stress-watch.csv", "echo-out/remote-epoll-stress-watch.csv", "echo-out/remote-python-stress-watch.csv"], ["async", "epoll", "python"])
+except:
     pass    
 
 try:
-    plot_server_stats("echo-out/remote-server-throughput.png", ["echo-out/remote-async-throughput-server.csv", "echo-out/remote-epoll-throughput-server.csv"], ["async", "epoll"])
-except FileNotFoundError:
+    plot_server_stats("echo-out/remote-server-throughput.png", ["echo-out/remote-async-throughput-server.csv", "echo-out/remote-epoll-throughput-server.csv", "echo-out/remote-async-throughput-server.csv"], ["async", "epoll", "python"])
+except:
     pass    
 
 try:
-    plot_watch("echo-out/remote-watch-throughput.png", ["echo-out/remote-async-throughput-watch.csv", "echo-out/remote-epoll-throughput-watch.csv"], ["async", "epoll"])
-except FileNotFoundError:
+    plot_watch("echo-out/remote-watch-throughput.png", ["echo-out/remote-async-throughput-watch.csv", "echo-out/remote-epoll-throughput-watch.csv", "echo-out/remote-python-throughput-watch.csv"], ["async", "epoll", "python"])
+except:
     pass    
 
 try:
     plot_throughput("echo-out/local-throughput.png", [
         "./echo-out/local-async-throughput-client.csv",
         "./echo-out/local-epoll-throughput-client.csv",
-    ], ["async", "epoll"])
-except FileNotFoundError:
+        "./echo-out/local-python-throughput-client.csv",
+    ], ["async", "epoll", "python"])
+except:
     pass    
 
 try:
     plot_throughput("echo-out/remote-throughput.png", [
         "./echo-out/remote-async-throughput-client.csv",
         "./echo-out/remote-epoll-throughput-client.csv",
-    ], ["async", "epoll"])
-except FileNotFoundError:
+        "./echo-out/remote-python-throughput-client.csv",
+    ], ["async", "epoll", "python"])
+except:
     pass    
 
 try:
     plot_msg_latency("echo-out/remote-msg-latency.png", [
         "echo-out/remote-async-throughput-100-msg-lat.csv", 
-        "echo-out/remote-epoll-throughput-100-msg-lat.csv",
         "echo-out/remote-async-throughput-1000-msg-lat.csv", 
-        "echo-out/remote-epoll-throughput-1000-msg-lat.csv",
         "echo-out/remote-async-throughput-10000-msg-lat.csv", 
-        "echo-out/remote-epoll-throughput-10000-msg-lat.csv",
         "echo-out/remote-async-throughput-100000-msg-lat.csv", 
+        "echo-out/remote-epoll-throughput-100-msg-lat.csv",
+        "echo-out/remote-epoll-throughput-1000-msg-lat.csv",
+        "echo-out/remote-epoll-throughput-10000-msg-lat.csv",
         "echo-out/remote-epoll-throughput-100000-msg-lat.csv",
+        "echo-out/remote-python-throughput-100-msg-lat.csv",
+        "echo-out/remote-python-throughput-1000-msg-lat.csv",
+        "echo-out/remote-python-throughput-10000-msg-lat.csv",
+        "echo-out/remote-python-throughput-100000-msg-lat.csv",
     ], [
         "async-100", 
-        "epoll-100",
         "async-1000", 
-        "epoll-1000",
         "async-10000", 
-        "epoll-10000",
         "async-100000", 
+        "epoll-100",
+        "epoll-1000",
+        "epoll-10000",
         "epoll-100000",
+        "python-100",
+        "python-1000",
+        "python-10000",
+        "python-100000",
     ])
-except FileNotFoundError:
+except:
     pass    

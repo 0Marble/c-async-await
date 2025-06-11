@@ -139,7 +139,7 @@ async def main(args):
                  f"{args.prefix}-epoll-throughput", args,
         )
         await run_instance(
-                "./examples/echo_python", 
+                "./examples/echo_python.py", 
                 "./examples/echo_client_throughput.py", 
                  f"{args.prefix}-python-throughput", args,
         )
@@ -155,7 +155,7 @@ async def main(args):
                  f"{args.prefix}-epoll-stress", args,
         )
         await run_instance(
-                "./examples/echo_python", 
+                "./examples/echo_python.py", 
                 "./examples/echo_client_stress.py", 
                  f"{args.prefix}-python-stress", args,
         )
