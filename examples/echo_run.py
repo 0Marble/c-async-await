@@ -138,6 +138,11 @@ async def main(args):
                 "./examples/echo_client_throughput.py", 
                  f"{args.prefix}-epoll-throughput", args,
         )
+        await run_instance(
+                "./examples/echo_python", 
+                "./examples/echo_client_throughput.py", 
+                 f"{args.prefix}-python-throughput", args,
+        )
     if "all" in args.tests or "stress" in args.tests:
         await run_instance(
                 "./build/examples/echo_async", 
@@ -148,6 +153,11 @@ async def main(args):
                 "./build/examples/echo_epoll", 
                 "./examples/echo_client_stress.py", 
                  f"{args.prefix}-epoll-stress", args,
+        )
+        await run_instance(
+                "./examples/echo_python", 
+                "./examples/echo_client_stress.py", 
+                 f"{args.prefix}-python-stress", args,
         )
 
 parser = argparse.ArgumentParser("runner")
