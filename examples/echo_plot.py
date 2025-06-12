@@ -3,6 +3,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import csv
 
+def verify_files_exist(files):
+    for path in files:
+        try:
+            f = open(path, "r")
+            f.close()
+        except:
+            print("[ERROR] File not accessible", path)
+
+
 def read_latency(path):
     print(path)
     f = open(path, "r")
@@ -13,6 +22,7 @@ def read_latency(path):
     return res
 
 def plot_join_latency(out_name, files, titles):
+    verify_files_exist(files)
     try:
         plt.figure(figsize=(10,6))
         plt.title("Joining Latency")
@@ -44,6 +54,7 @@ def read_server_stats(file_name):
     return ts, clients, bytes_processed
 
 def plot_server_stats(out_name, data_files, titles):
+    verify_files_exist(data_files)
     try:
         plt.figure(figsize=(10, 6))
         plt.xlabel("Time (s)")
@@ -76,6 +87,7 @@ def read_watch(file_name):
     return cpu, mem
 
 def plot_watch(out_name, data_files, titles):
+    verify_files_exist(data_files)
     try:
         plt.figure(figsize=(10, 12))
         cpu_axis = plt.subplot(2, 1, 1)
@@ -101,6 +113,7 @@ def plot_watch(out_name, data_files, titles):
         print("[ERROR] failed to plot", out_name, file=sys.stderr)
 
 def plot_msg_latency(out_name, data_files, titles):
+    verify_files_exist(data_files)
     try:
         plt.figure(figsize=(10,6))
         plt.title("Message Latency CDF")
@@ -132,6 +145,7 @@ def read_throughput(file_name):
     return size, byts, time
 
 def plot_throughput(out_name, data_files, titles):
+    verify_files_exist(data_files)
     try:
         plt.figure(figsize=(10,6))
         plt.title("Message Throughput")
