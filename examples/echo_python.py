@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python -u
 import asyncio
 import sys
 
@@ -35,13 +35,13 @@ async def log_stats():
     global bytes_processed 
     i = 0
     while True:
-        await asyncio.sleep(1)
         print(f"{i}, {current_users}, {bytes_processed}")
         i += 1
         bytes_processed = 0
+        await asyncio.sleep(1)
 
 async def run_server(port):
-    asyncio.create_task(log_stats())
+    stats = asyncio.create_task(log_stats())
     serv = await asyncio.start_server(run_client, port = port)
     print(f"started at ::{port}", file = sys.stderr)
     try:
